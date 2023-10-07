@@ -53,10 +53,10 @@ specifying options such as --with-pcap=DIR or --with-libnet=DIR if these
 are needed to help it locate those packages.
 
 Note that because the present version of the program only runs on 
-Solaris 8 SPARC, built with gcc 3.0.4 (it has not been ported to other platforms),
+Solaris 9 SPARC, built with gcc 3.3.3 (it has not been ported to other platforms),
 it ignores much of what 'configure' discovers about your platform.
-Previously it has been built and run successfully on Solaris 7,
-and with gcc 2.95.2 and 2.95.3.
+Previously it has been built and run successfully on Solaris 7, Solaris 8,
+and with gcc 2.95.2 and 2.95.3, 3.0.4.
 
 More information about running 'configure' is available in the INSTALL.generic
 file, and you may type './configure --help' for a summary of options.
@@ -183,6 +183,11 @@ The program has been successfully built and used on the following platforms:
 
         Solaris 8 on SPARC
         gcc 3.0.4
+        libpcap 0.8.2
+        libnet 1.0.2a
+
+        Solaris 9 on SPARC
+        gcc 3.3.3
         libpcap 0.8.2
         libnet 1.0.2a
 

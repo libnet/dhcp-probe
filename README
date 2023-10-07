@@ -11,7 +11,7 @@ It was written by Irwin Tillman.
 
 It is available from: http://www.net.princeton.edu/software/dhcp_probe/
 
-This version runs on Solaris 8 on SPARC, compiled with gcc. 
+This version runs on Solaris 9 on SPARC, compiled with gcc. 
 It has not been ported to any other platform at this time.
 This version supports only Ethernet interfaces, not FDDI.
 

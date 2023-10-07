@@ -2,6 +2,11 @@ dhcp_probe NEWS - history of user-visible changes.
 
 See the file ChangeLog for the details of all changes.
 
+Version 1.0.6 - August 24 2004, by Irwin Tillman
+
+* Upgraded autoconf and automake, may build on newer systems.
+
+
 Version 1.0.5 - August 24 2004, by Irwin Tillman
 
 * We make some effort to ignore BootP/DHCP responses we happen to capture 

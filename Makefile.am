@@ -8,6 +8,7 @@ EXTRA_DIST = COPYING.GPL INSTALL.generic \
 	config/install-sh \
 	config/missing \
 	config/mkinstalldirs \
+	config/depcomp \
 	m4/ac_check_func_proto.m4 \
 	m4/ac_check_struct_for.m4 \
 	m4/ac_unp_check_type.m4 \

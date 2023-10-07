@@ -1,3 +1,9 @@
+Tue Aug 24 11:17:43 EDT 2004  Irwin Tillman  (irwin at princeton dot edu)
+
+	* Upgraded from autoconf 2.13 to 2.59.  Upgraded from automake 1.4 to 1.8.3.
+
+	* Version 1.0.6 released.
+
 Tue Aug 24 10:52:22 EDT 2004  Irwin Tillman  (irwin at princeton dot edu)
 
 	* README, COPYING, Changelog: replace email addresses with human-parseable

@@ -3,7 +3,7 @@ dnl The macro AC_SYS_NERR
 dnl is based on code from configure.in distributed with LPRng-2.0.8.
 dnl See the COPYING file for details.
 dnl
-dnl Version $Id: sys_errlist.m4,v 1.2 2001/01/26 19:02:40 irwin Exp $
+dnl Version $Id: sys_errlist.m4,v 1.3 2004/08/24 15:13:55 root Exp $
 dnl 
 dnl Usage:
 dnl  AC_SYS_NERR
@@ -12,7 +12,7 @@ dnl Tries to link a program that mentions sys_nerr.
 dnl If it exists, defines C preprocessor macro HAVE_SYS_NERR.
 dnl Sets the cache variable ac_cv_var_sys_nerr to 'yes' or 'no'.
 dnl
-AC_DEFUN(AC_SYS_NERR,
+AC_DEFUN([AC_SYS_NERR],
 [AC_MSG_CHECKING(for sys_nerr)
 AC_CACHE_VAL(ac_cv_var_sys_nerr,
 [AC_TRY_LINK(,[extern int sys_nerr; return (sys_nerr);],
@@ -43,7 +43,7 @@ dnl then will #include various header files based on HAVE_STDLIB_H and HAVE_UNIS
 dnl may appear in "confdefs.h".  Of course, to make this work, you should have invoked
 dnl AC_CHECK_HEADERS(stdlib.h unistd.h) in configure.in.
 dnl
-AC_DEFUN(AC_DECL_SYS_NERR,
+AC_DEFUN([AC_DECL_SYS_NERR],
 [AC_MSG_CHECKING(for sys_nerr declaration)
 AC_CACHE_VAL(ac_cv_decl_sys_nerr,
 [AC_TRY_COMPILE([
@@ -76,7 +76,7 @@ dnl Tries to link a program that mentions sys_errlist.
 dnl If it exists, defines C preprocessor macro HAVE_SYS_ERRLIST.
 dnl Sets the cache variable ac_cv_var_sys_errlist to 'yes' or 'no'.
 dnl
-AC_DEFUN(AC_SYS_ERRLIST,
+AC_DEFUN([AC_SYS_ERRLIST],
 [AC_MSG_CHECKING(for sys_errlist)
 AC_CACHE_VAL(ac_cv_var_sys_errlist,
 [AC_TRY_LINK(,[extern char *sys_errlist[];
@@ -108,7 +108,7 @@ dnl then will #include various header files based on HAVE_STDLIB_H and HAVE_UNIS
 dnl may appear in "confdefs.h".  Of course, to make this work, you should have invoked
 dnl AC_CHECK_HEADERS(stdlib.h unistd.h) in configure.in.
 dnl
-AC_DEFUN(AC_DECL_SYS_ERRLIST,
+AC_DEFUN([AC_DECL_SYS_ERRLIST],
 [AC_MSG_CHECKING(for sys_errlist declaration)
 AC_CACHE_VAL(ac_cv_decl_sys_errlist,
 [AC_TRY_COMPILE([
