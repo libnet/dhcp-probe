@@ -1,0 +1,167 @@
+# dhcp_probe.cf: config file for dhcp_probe
+#
+# General syntax:
+#  Comment lines start with '#' (trailing comments not permitted).
+#  Blank lines are OK.
+#  Tokens within a line should be separated with spaces and/or tabs.
+#  Entries in the file may be in any order.
+#  Any 'ethernet-address' must be written in a form that ether_aton(3) recognizes; e.g.
+#      1:2:3:4:5:6   00:A5:b2:0:BB:c
+#  Any 'ip-address' must be written in a form that inet_aton(3) recognizes; e.g.
+#      192.168.1.2
+#
+# ----------------------------------------------------------------------------------
+#
+# CLIENT HARDWARE ADDRESS
+#
+# By default, for the 'chaddr' field in the BootP header, we use the Ethernet
+# address corresponding to the interface you specified.
+# We also use this value to compute the DHCP Client Identifier option (by prepending x'01').  
+# You may optionally override this value.  
+# (Note that this does not override the Ethernet Src address in the Ethernet frame we send.)
+#
+# You might want to do this if our interface is also a DHCP client, so 
+# sending requests with the interface's own chaddr/DHCP Client Identifier would interfere with 
+# that functionality.
+#
+# If you specify a value, be sure to specify an Ethernet address that does not belong to
+# any valid client on your network.  Be sure to specify a unicast Ethernet address.
+#
+# Syntax:
+#    chaddr enet-addr
+
+# chaddr 0:0:0:1:2:3
+
+
+# ----------------------------------------------------------------------------------
+#
+# ETHERNET SOURCE ADDRESS
+#
+# By default, for the 'ether_shost' field in the Ethernet header, we use the Ethernet
+# address corresponding to the interface you specified.
+# You may optionally override this value.
+# (Note that this does not override the 'chaddr' in the BootP header, nor the DHCP Client Identifier.)
+#
+# If you are specify the 'chaddr' statement, you might want to also do this, so you don't miss buggy 
+# DHCP servers that respond (incorrectly) to ether_src instead of to chaddr. 
+#
+# If you specify a value, be sure to specify an Ethernet address that does not belong to
+# any valid client on your network.  Be sure to specify a unicast Ethernet address.
+#
+# Syntax:
+#    ether_src enet-addr
+
+# ether_src 0:0:0:1:2:3
+
+
+# ----------------------------------------------------------------------------------
+#
+# DHCP SERVER IDENTIFIER
+#
+# When we generate a DHCPREQUEST packet corresponding to a client that is in the SELECTING
+# state, the options field must contain a 'DHCP Server Identifier' option, indicating the
+# IP address of the DHCP server the client is selecting.   It's best that the value we use
+# not match the IP address of any valid DHCP server, to avoid confusing them.  The program
+# provides a default value of 10.254.254.254, which you may override here.
+#
+# Syntax:
+#    server_id ip-addr
+
+# server_id 10.254.254.254
+
+# ----------------------------------------------------------------------------------
+#
+# CLIENT IP ADDRESS
+#
+# When we generate a DHCPREQUEST packet corresponding to a client that is in the INIT-REBOOT
+# or SELECTING state, the options field must containg a 'Requested IP Address' option, indicating
+# the IP address the client is requesting.    When we generate a DHCPREQUEST packet corresponding
+# to a client that is in the REBINDING state, the 'ciaddr' field in the BootP header must contain
+# the IP address that the DHCP client presently has leased and wishes to renew.
+#
+# In all these cases, it's best that the value we use not match the IP address of any valid DHCP client, 
+# to avoid confusing the valid DHCP servers.  
+#
+# Furthermore, it is extremely useful if the value we use *not* be valid (topologically speaking) for the 
+# physical network on which we send the packets.  Sending a topologically inappropriate value
+# may stimulate some DHCP servers to respond with a DHCPNAK, which helps us flush out DHCP servers.
+# (This will probably happen only in response to the packets we sending when pretending to be in REBINDING state.)
+#
+# The program provides a default value of 172.31.254.254, which you may override here.
+#
+# Syntax:
+#   client_ip_address ip-addr
+
+# client_ip_address 172.31.254.254
+
+# ----------------------------------------------------------------------------------
+#
+# RESPONSE WAIT TIME
+#
+# After sending one packet, we wait for responses.  The length of time we wait
+# is the 'response_wait_time'.  The program provides a default value of 5000, which you
+# may override here.  The value is measured in milliseconds, and must fit into
+# an 'int' on your host.  (Values larger than an 'int' may be silently misinterpreted.)
+# Typical values are on the order of a few thousand milliseconds; i.e. several seconds.
+#
+# Syntax:
+#    response_wait_time num_milliseconds
+
+# response_wait_time 5000
+
+# ----------------------------------------------------------------------------------
+# 
+# CYCLE TIME
+# 
+# For each flavor packet, we send the packet and listen for responses to that packet.
+# After doing this for all flavor packets, we go to sleep for the "cycle_time",
+# then repeat the process.  The program provides a default value of 300, which you
+# may override here.  The value is measured in seconds, and must fit into an
+# 'unsigned int' on your host.  (Values larger than an 'unsigned int' may be silently
+# misinterpreted.)  Typical valus range from several hundred to several thousand
+# seconds (i.e. several minutes to several hours).
+#
+# Syntax:
+#    cycle_time num_seconds
+
+# cycle_wait_time 300
+
+# ----------------------------------------------------------------------------------
+#
+# LEGAL SERVERS
+#
+# After sending one packet, we wait for responses.  Responses from legal BootP or DHCP
+# servers are ignored; presumably you aren't interesting in discovering them.
+# Specify a legal server's IP address with the 'legal_server' statement.  
+# (The value you specify is compared to the IPsrc field in each response's IP header.)
+# If you have multiple legal servers, specify each in a separate statement.
+# Alternatively, do not specify any legal_server statements at all, so *no* responses
+# are ignored.
+# If your BootP Relay Agents overwrite the server's IP address in the IPsrc field
+# with their own IP addresses, you will need to list the IP addresses of the
+# BootP Relay Agents.
+#
+# Syntax:
+#   legal_server ip-addr
+
+# legal_server 192.168.1.2
+# legal_server 192.168.3.4
+
+# ----------------------------------------------------------------------------------
+#
+# ALERT PROGRAM NAME
+#
+# In addition to logging a response received from an unexpected server, we will
+# call a user-specified 'alert program' if one is specified here.  Optionally
+# specify the absolute pathname of a program we should execute for each unexpected response.
+# The program will be called with the name of the calling program, the name of the interface
+# on which the response was received, the IP source of the response, and the ether_src of the
+# response.
+#
+# Syntax:
+#   alert_program_name /absolute/path/name
+
+# alert_program_name /usr/local/etc/pageme
+
+# ----------------------------------------------------------------------------------
+

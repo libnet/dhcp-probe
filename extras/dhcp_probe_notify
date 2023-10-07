@@ -1,0 +1,43 @@
+#!/usr/local/bin/perl
+
+# dhcp_probe_notify : external program called by dhcp_probe upon response of a
+#	response from an unexpected BootP/DHCP server
+#
+# Called via specification of 'alert_program_name' in /etc/dhcp_probe.cf file.
+#
+# We are called with four arguments:
+#   the name of the calling program (e.g. 'dhcp_probe')
+#   the name of the interface on which the unexpected response packet arrived (e.g. 'qfe0')
+#   the IP source address of the unexpected response packet
+#   the Ethernet source address of the unexpected response packet
+
+
+$MAILCMD = "/usr/lib/sendmail";
+$MAILCMD_OPTS = "-t -ODeliveryMode=queueonly";
+$FROM = "root";
+$TO = "root";
+$SUBJECT = "unexpected BootP/DHCP server";
+
+use Sys::Hostname;
+
+($prog = $0) =~ s/.*\///;
+
+$hostname = hostname();
+
+($calling_program, $ifname, $ip_src, $ether_src) = @ARGV;
+
+open(MAIL, "| $MAILCMD $MAILCMD_OPTS -f\"$FROM\"") or die "${prog}: can't execute '${MAILCMD}': $!\n";
+
+print MAIL  "From: $FROM\n",
+			"To: $TO\n",
+			"Subject: $SUBJECT (MAC=${ether_src}, IP=${ip_src})\n",
+			"\n",
+			scalar localtime(time),
+			"\n",
+			"$calling_program detected an unexpected BootP/DHCP server.\n",
+			"$hostname interface=${ifname}, IP source=${ip_src}, Ethernet source=${ether_src}\n";
+
+close(MAIL) or die "${prog}: can't execute '${MAILCMD}': $!\n";
+
+exit 0;
+

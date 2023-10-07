@@ -1,0 +1,25 @@
+dhcp_probe NEWS - history of user-visible changes.
+
+See the file ChangeLog for the details of all changes.
+
+Version 1.0.3 - February 2001, by Irwin Tillman
+
+* No user-visible changes.
+
+
+Version 1.0.2 - January 2001, by Irwin Tillman
+
+* Cleanup of some of the configuration code.  You may now specify
+  where libnet and libpcap libraries and includes are located.
+
+
+Version 1.0.1 - August 2000, by Irwin Tillman
+
+* Added alert_program_name feature, so you may specify an external
+  program to run each time a response is received from an unexpected server.
+
+
+Version 1.0.0 - June 2000, by Irwin Tillman
+
+* first version
+

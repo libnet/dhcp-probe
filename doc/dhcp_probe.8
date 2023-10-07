@@ -1,0 +1,827 @@
+.\" Copyright (c) 2000-2001, The Trustees of Princeton University.  All rights reserved.
+.\"
+.TH DHCP_PROBE 8 "February 14 2001" "Princeton Univ."
+.SH NAME
+dhcp_probe \- locate DCHP and BootP servers on a directly-attached network
+.SH SYNOPSIS
+dhcp_probe
+[
+.B \-c
+.I config_file
+]
+[
+.B \-d
+.I debuglevel
+]
+[
+.B \-f
+]
+[
+.B \-h
+]
+[
+.B \-l
+.I log_file
+]
+[
+.B \-o
+.I capture_file
+]
+[
+.B \-p
+.I pid_file
+]
+[
+.B \-s
+.I capture_bufsize
+]
+[
+.B \-v
+]
+[
+.B \-w
+.I cwd
+]
+.I interface_name
+.br
+.SH DESCRIPTION
+dhcp_probe
+attempts to discover DHCP and BootP servers on a directly-attached Ethernet network.
+A network administrator can use this tool to locate unauthorized DHCP and BootP servers.
+.PP
+The program must be run with root privilege.
+.PP
+The program periodically broadcasts a number of DHCP and BootP request packets out a single
+physical interface.
+Several different kinds of request packets are sent, as a DHCP or BootP
+server may only respond to certain requests, depending on the server's
+configuration.
+Essentially, 
+dhcp_probe
+mimics a BootP or DHCP client in a variety of
+possible states, attempting to provoke responses from servers.
+.PP
+After sending each request packet, 
+dhcp_probe
+listens for responses.
+After filtering out responses from known DHCP and BootP servers (identified
+by their IP source addresses), it logs any responses from unknown servers.
+.PP
+Optionally, responses from unknown servers may also be written to
+a packet capture file.
+.PP
+Optionally, an external program may be called each time a response
+from an unknown server is received.
+.PP
+Because a DHCP or BootP server may be configured in such a way as to
+not respond to arbitrary clients, 
+dhcp_probe
+may not be able to
+locate all DHCP and BootP servers; see
+LIMITATIONS below.
+.PP
+As DHCP broadcasts do not ordinarily cross IP routers,
+dhcp_probe
+will locate only servers that are attached to the same
+physical network as the interface specified on the command line.
+Although BootP Relay Agents running on this network may help
+the broadcasts cross IP routers, these agents typically are configured to
+convert the broadcasts to unicasts directed to only the well-known
+DHCP or BootP servers located on other physical networks.
+As a result, BootP Relay Agents will allow your the servers to
+receive the requests issued by 
+dhcp_probe,
+but will not cause
+remote unknown servers to hear these requests.
+Therefore, if you have multiple physical networks, you may wish
+to run 
+dhcp_probe
+on each of these networks to discover
+unknown DHCP and BootP servers on each of them.
+.PP
+dhcp_probe
+functions on a single Ethernet interface specified on the
+command line; it does not listen on multiple interfaces.
+However, if the host has multiple physical interfaces, you may run an 
+instance of 
+dhcp_probe 
+on each interface.
+.PP
+Because it is possible to configure a BootP or DHCP server so
+it only responds to a set of known clients, it is possible that 
+dhcp_probe
+will be unable to find all BootP and DHCP
+servers attached to a network.
+.SH AVAILABILITY
+.PP
+dhcp_probe
+is a product of the Network Systems Group at
+Princeton University's Office of Computing and
+Information Technology,
+and is available from
+http://wwwnet.princeton.edu/software/dhcp_probe/
+.PP
+Presently the product builds and runs on Solaris 7 on SPARC with gcc 2.95.2.
+The program relies on the
+.BR pcap (3)
+and
+.BR libnet (3)
+libraries.
+It has been tested with version 0.5 (and previously with 0.4) of 
+.B pcap
+and version 1.0.1b of
+.BR libnet .
+.SH OPTIONS
+.TP
+.IB \-c \ config_file
+Specifies the configuration file.
+If not specified, this defaults to
+.BR /etc/dhcp_probe.cf .
+The configuration file is read at startup, and is re-read
+whenever a SIGHUP is received.
+See
+.BR dhcp_probe.cf (5).
+.TP
+.BI \-d \ debuglevel
+Sets the
+.I debuglevel
+variable that controls the amount of debugging messages generated.
+If not specified, this defaults to 0 (no debugging).
+For a summary of the types of messages produced at each
+debug level, see DEBUG LEVELS below.
+.TP
+.B \-f
+Specifies that the program should not fork, but instead
+remain in the foreground.
+Only use this when you are starting the program manually for
+testing purposes.
+When in the foreground, any messages produced by the program
+are written to
+.IR stderr
+instead of to
+.BR syslog (3)
+or any 
+.I log_file
+you might specify with the
+.B \-l
+option.
+.TP
+.B \-h
+Display a brief usage summary, then exit.
+.TP
+.BI \-l \ log_file
+Log messages to the specified file instead of to
+.BR syslog (3).
+(This option is ignored if you also specify the
+.B \-f
+option, as that directs messages to
+.IR stderr .)
+The log file is opened shortly after the program starts.
+It is closed and re-opened when the program receives
+a SIGUSR1 signal.
+.TP
+.BI \-o \ capture_file
+When a response packet is received from an unexpected server,
+write the packet to the specified file.
+The file is opened and truncated shortly after the program starts.
+It is closed and re-opened (and truncated) when the program
+receives a SIGUSR2 signal.
+The file is a 
+.BR pcap (3) 
+savefile, and may be read with any program
+that understands the pcap savefile format; e.g. 
+.BR tcpdump (1).
+.TP
+.BI \-p \ pid_file
+Specifies the file that will contain the program's processid.
+If not specified, this defaults to
+.BR /etc/dhcp_probe.pid .
+The
+.I pid_file
+is written shortly after the program starts, and is removed
+when the program exits under its own control.
+.TP
+.BI \-s \ capture_bufsize
+Specifies the size of the buffer that will be used to
+capture all the responses (Ethernet frames) to a single request packet;
+responses which do not fit are silently dropped.
+The value is specified in bytes, and must fit into your host's
+range for an
+.IR int ;
+values outside that range may result in unpredictable results.
+If not specified, this defaults to 30280, which is enough
+for twenty maximum-size Ethernet frames (1514*20).
+Typical responses are Ethernet frames ranging from 342-590 bytes, so the
+default capture buffer size should hold over 50 of them.
+.TP
+.B \-v
+Display the program's version number, then exit.
+.TP
+.IB \-w \ cwd
+Specifies the working directory; shortly after starting the
+program changes its current working directory to this.
+If not specified, this defaults to
+.IR / .
+.TP
+.I interface_name
+Specifies the name of the interface the program should use;
+this argument is required.
+This must be an Ethernet interface which is up and has been assigned
+an IP address.
+.SH OPERATION
+.PP
+After initialization, the program enters its main event loop,
+in which it remains until you signal the program to exit
+with a SIGINT, SIGTERM, or SIGQUIT.
+.PP
+The main event loop (a.k.a. the "probe cycle")
+consists of the following actions, repeated until
+the program receives a request to quit:
+.RS 5
+.TP
+1. 
+Handle any signals that have been received.
+.TP
+2. 
+Install a 
+.BR pcap (3)
+filter to listen for UDP packets destined to the BootP client port
+(UDP port 68).
+.TP
+3. 
+Broadcast a DHCP or BootP request packet out the specified interface.
+.TP
+4. 
+Listen for
+.I response_wait_time
+milliseconds for any responses received by the 
+.BR pcap (3)
+filter.
+(The
+.I response_wait_time
+defaults to 5000 milliseconds (5 seconds), and may be changed in the
+.IR dhcp_probe.cf (5) 
+file.)
+.sp
+Any responses from known DHCP and BootP servers are ignored.
+(The IP address of each known server is declared using a
+.B legal_server
+statement in the
+.IR dhcp_probe.cf (5)
+file.)
+.sp
+For each response from an unknown server, log a message showing the response packet's
+source IP and Ethernet addresses.
+If the 
+.B \-o 
+option was specified, the packet is also written to a packet capture file. 
+If an
+.I alert_program_name
+was specified in the
+.IR dhcp_probe.cf (5) 
+file,
+that program is also executed, with the following arguments:
+the name of the calling program (e.g.
+.BR dhcp_probe ),
+the name of the interface on which the unexpected response packet was received,
+the IP source address of the packet,
+and the Ethernet source address of the packet.
+(We do not wait for the
+.I alert_program_name
+to complete; it runs in a child process.)
+.TP
+5.
+Remove the 
+.BR pcap(3)
+filter installed earlier.
+.TP
+6.
+If any signals have arrived requesting that we quit, exit gracefully.
+.TP
+7. 
+Repeat steps 2-6  for each flavor of DHCP and BootP request packet the
+program supports (see PACKET FLAVORS below).
+.TP
+8. 
+Handle any signals that have been received.
+.TP
+9. 
+Sleep for 
+.I cycle_time
+seconds.
+(The
+.I cycle_time
+defaults to 300 seconds, and 
+and may be changed in the
+.IR dhcp_probe.cf (5)
+file.)
+.RE
+.PP
+The 
+.BR pcap (3)
+filter the program installs normally does not specify that the interface should be
+placed into promiscuous mode (although it is possible the interface is already in promiscuous
+mode for some other reason).
+However, if in the
+.BR dhcp_probe.cf (5)
+file you specify a
+.I chaddr
+or
+.I ether_src
+value other than the interface's actual hardware address,
+then the pcap filter
+.I will
+specify that the interface should be placed into promiscuous mode.
+.PP
+Although the filter used with
+.BR pcap (3)
+specifies only UDP packets destined to port 
+.I bootpc
+should be collected,
+on systems where
+.I bpf
+isn't part of the kernel,
+.BR pcap (3)
+must implement
+.I bpf
+as part of the application.
+This can increase the number of packets that must be passed from
+the kernel to user space to be filtered.
+The program attempts to minimize the side-effects of this by
+removing the 
+.BR pcap (3)
+filter when it isn't actually listening for responses.
+In particular, the filter is not installed during the time the
+program sleeps between each probe cycle
+(the
+.IR cycle_time ).
+.PP
+If you do specify an 
+.IR alert_program_name ,
+take care that the program you specify is safe for a privileged
+user to run; it is executed with the same (i.e. root) privileges as
+the calling program.
+.SH "PACKET FLAVORS"
+No single request packet is likely to provoke a response
+from every possible BootP and DHCP server.
+Some servers may only response to either BootP, or DHCP, but
+not both.
+Some servers may be configured to only respond to a small
+set of known clients.
+Some DHCP servers will only provide leases to a small
+set of known clients, but may be willing to respond
+(negatively) to unknown clients that 
+request a lease renewal on an inappropriate IP address.
+Therefore, 
+dhcp_probe
+actually sends not one, but five different
+flavor request packets, in the hopes of provoking responses
+from a wider variety of unknown servers.
+.PP
+The packet flavors are:
+.TP
+BOOTPREQUEST
+This packet is typical of a BootP client requesting an IP address.
+.sp
+It will typically provoke a BOOTPREPLY from a BootP server willing to
+respond to any BootP client.
+(BootP servers configured to only respond to a set of known clients
+may not respond.)
+.TP
+DHCPDISOVER (INIT)
+This packet is typical of a DHCP client in the INIT state.
+.sp
+The options field contains a DHCP Message Type specifying DHCPDISCOVER.
+.sp
+The options field contains a DHCP Client Identifier, which is computed
+by prepending 0x'01' to the value of
+.IR chaddr . 
+(The value
+.I chaddr
+is specified in the
+.BR dhcp_probe.cf (5)
+file, otherwise it defaults to the interface's Ethernet address.)
+.sp
+This packet will typically provoke a  DHCPOFFER from a DHCP server willing to
+respond to any DHCP client.
+(DHCP servers configured to only offer leases to a set of known clients
+may not respond.)
+.TP
+DHCPREQUEST (SELECTING):
+This packet is typical of a DHCP client in the SELECTING state; i.e. a client
+which has previously issued a DHCPDISCOVER, then received a DHCPOFFER from
+some DHCP server.
+.sp
+The options field contains a DHCP Message Type specifying DHCPREQUEST.
+.sp
+The options field contains a DHCP Client Identifier, 
+which is computed 
+by prepending 0x'01' to the value of
+.IR chaddr .
+(The value
+.I chaddr
+is specified in the
+.BR dhcp_probe.cf (5)
+file, otherwise it defaults to the interface's Ethernet address.)
+.sp
+The options field contains a DHCP Server Identifier specifying 
+.IR server_id ,
+which should be an IP address that does not correspond to any valid DHCP Server Identifier
+on your network.
+(The value
+.I server_id
+is specified in the
+.BR dhcp_probe.cf (5)
+file, otherwise it defaults to 10.254.254.254.)
+.sp
+The options field contains a DHCP Requested IP Address specifying 
+.IR client_ip_address ,
+which should be an IP address that does not correspond to any valid IP address
+on your network.
+(The value
+.I client_ip_address
+is specified in the
+.BR dhcp_probe.cf (5)
+file, otherwise it defaults to 172.31.254.254.)
+.sp
+This packet occassionally provokes a response from a broken DHCP server
+that fails to respect the DHCP Server Identifier option.
+.TP
+DHCPREQUEST (INIT-REBOOT):
+This packet is typical of a DHCP client in the INIT-REBOOT state; i.e. a client
+which has obtained a DHCP lease in the past, is bringing up its IP stack,
+and hopes to obtain (or extend) a DHCP lease on the same IP address as in the past.
+.sp
+The options field contains a DHCP Message Type specifying DHCPREQUEST.
+.sp
+The options field contains a DHCP Client Identifier, 
+which is computed 
+by prepending 0x'01' to the value of
+.IR chaddr .
+(The value
+.I chaddr
+is specified in the
+.BR dhcp_probe.cf (5)
+file, otherwise it defaults to the interface's Ethernet address.)
+.sp
+The options field contains a DHCP Requested IP Address specifying
+.IR client_ip_address ,
+which should be an IP address that does not correspond to any valid IP address
+on your network; ideally it should be one that is topologically inappropriate
+for your network.
+(The value
+.I client_ip_address
+is specified in the
+.BR dhcp_probe.cf (5)
+file, otherwise it defaults to 172.31.254.254.)
+.sp
+If the Requested IP Address option is topologically inappropriate for your network,
+this packet may provoke a DHCPNAK from any DHCP server that 
+believes it is authoritative for the network's IP topology.
+.TP
+DHCPREQUEST (REBINDING)
+This packet is typical of a DHCP client in the REBINDING state; i.e. a client
+which has obtained a DHCP lease which is between its DHCP T2 and expiration time.
+.sp
+The options field contains a DHCP Message Type specifying DHCPREQUEST.
+.sp
+The options field contains a DHCP Client Identifier, 
+which is computed 
+by prepending 0x'01' to the value of
+.IR chaddr .
+(The value
+.I chaddr
+is specified in the
+.BR dhcp_probe.cf (5)
+file, otherwise it defaults to the interface's Ethernet address.)
+.sp
+The ciaddr field contains
+.IR client_ip_address ,
+which should be an IP address that does not correspond to any valid IP address
+on your network; ideally it should be one that is topologically inappropriate
+for your network.
+(The value
+.I client_ip_address
+is specified in the
+.BR dhcp_probe.cf (5)
+file, otherwise it defaults to 172.31.254.254.)
+.sp
+If the value of ciaddr is topologically inappropriate for your network,
+this packet will provoke a DHCPNAK from any DHCP server that 
+believes it is authoritative for the network's IP topology.
+.PP
+All the request packets sent by the program
+share the following common characteristics:
+.RS 5
+.sp
+Ethernet Header
+.RS 5
+destination: ff:ff:ff:ff:ff:ff
+.br
+source: 
+.IR ether_src 
+from 
+.IR dhcp_probe.cf (5),
+else interface hardware address
+.br
+type: ETHERTYPE_IP (0x0800)
+.RE
+.sp
+IP Header
+.RS 5
+version: 4
+.br
+header length: 5
+.br
+tos: 0
+.br
+total length: 328 (20-byte IP header + 8-byte UDP header + 300-byte BootP/DHCP payload)
+.br
+identifier: 1
+.br
+flags: 0
+.br
+fragment offset: 0
+.br
+ttl: 60
+.br
+protocol: IPPROTO_UDP (17)
+.br
+header checksum: (computed)
+.br
+source address: 0.0.0.0
+.br
+destination address: 255.255.255.255
+.br
+options: (none)
+.RE
+.br
+.sp
+UDP Header
+.RS 5
+source port: PORT_BOOTPC (68)
+.br
+dest port:  PORT_BOOTPS (67)
+.br
+checksum: (computed)
+.RE
+.sp
+BootP/DHCP Payload
+.RS 5
+op: BOOTREQUEST (1)
+.br
+htype: HTYPE_ETHER (1)
+.br
+hlen: HLEN_ETHER (6)
+.br
+hops: 0
+.br
+xid: 1
+.br
+secs: 0
+.br
+flags: 0
+.br
+ciaddr: 0.0.0.0 (except for DHCPREQUEST (REBINDING) packets it is
+.I client_ip_address
+from
+.BR dhcp_probe.cf (5),
+else 172.31.254.254)
+.br
+siaddr: 0.0.0.0
+.br
+giaddr: 0.0.0.0
+.br
+chaddr: 
+.I chaddr 
+from 
+.IR dhcp_probe.cf (5), 
+else interface hardware address
+.br
+sname: (all 0's)
+.br
+file: (all 0's)
+.br
+options: RFC1048 cookie (0x63825363), 
+possibly followed by DHCP options, 
+followed by END option (0xFF), 
+followed by PAD options (0x00) to bring the field to 64 bytes
+.RE
+.RE
+.SH "MULTIPLE INTERFACES"
+Although dhcp_probe only supports monitoring a single physical interface,
+you may run an instance of the program on each physical interface;
+each monitors a different physical network.
+.PP
+When running multiple copies of dhcp_probe, be sure to specify
+a different 
+.I pid_file
+for each instance.
+.PP
+If you specify a
+.I log_file 
+and/or a
+.IR capture_file ,
+be sure to specify a different one for each instance.
+.PP
+You may specify a different
+.I config_file
+for each instance.
+If you don't need to customize the settings in that file for each
+instance, you may use
+the same configuration file for all instances.
+.PP
+If you have multiple logical interfaces on the same physical
+interface, or multiple logical IP networks running on a single
+physical network, there is no need to run multiple instances
+of dhcp_probe to monitor each logical interfaces or logical network.
+A single instance of the program running on a physical interface
+is sufficient to provoke any servers on that physical network
+that might be willing to respond.
+.SH SIGNALS
+The program will respond to a number of signals:
+.TP
+.B SIGUSR1
+If logging to a file, close and re-open it.
+If the program is in the middle of a probe cycle, handling
+the signal is deferred until the end of the cycle.
+(Has no effect if logging to
+.BR syslog (3)
+or if the
+.B \-f
+option was specified.)
+.TP
+.B SIGUSR2
+If capturing to a file, close and re-open it.
+If the program is in the middle of a probe cycle, handling
+the signal is deferred until the end of the cycle.
+(Has no effect if the
+.B \-o
+option was not specified.)
+.sp
+Because re-opening the capture file causes the 
+file to be truncated and a new 
+.BR pcap (3)
+header to be
+written to it, if you want to save the 
+prior contents of the capture file, move the existing
+capture file aside before sending the signal.
+.TP
+.B SIGHUP
+Reread the configuration file.
+If the program is in the middle of a probe cycle, handling
+the signal is deferred until the end of the cycle.
+.TP
+.B SIGTERM, SIGINT, SIGQUIT
+Exit gracefully.
+If the program is in the middle of a probe cycle, handling
+the signal is deferred until the program finishes
+sending and receiving responses for the current flavor
+request packet.
+.SH "DEBUG LEVELS"
+The program produces increasingly detailed output as the
+.I debuglevel
+increases. 
+Under normal circumstances, you can run at 
+.IR debuglevel
+0.
+Here's roughly what messages are added at each
+.IR debuglevel .
+.LP
+.TP 6
+0
+Display the IP source (and Ethernet source) of each unexpected DHCP or BootP response packet.
+.sp
+Startup and shutdown notice.
+.sp
+Non-fatal errors in the configuration file.
+.sp
+Fatal errors.
+.TP 6
+1
+At startup, show some information about the program's configuration.
+.TP 6
+2
+Show each time we start and finish (re-)reading the configuration file.
+.sp
+Show each time we close and re-open the logfile or capture file.
+.sp
+Report on response packets that could not be parsed (e.g. truncated).
+.TP 6
+3
+Each time we (re-)read the configuration file, echo the information we obtain from it.
+.TP 6
+7
+For each parsable response packet, show the Ethernet source and destination, the IP source and destination,
+and indicate when the IP source is a legal (known) server.
+.TP 6
+11
+For each probe cycle, show when the cycle begins and ends, when we write a packet, and
+when we begin and end listening for response packets.
+.SH AUTHOR
+The program was written by Irwin Tillman
+of Princeton University's CIT Network Systems Group.
+It was written to run on Solaris 7,
+relying on the generally-available
+.BR pcap (3)
+and
+.BR libnet (3)
+libraries.
+.SH FILES
+.TP
+.B /etc/dhcp_probe.cf
+Configuration file read by the program.
+See
+.BR dhcp_probe.cf (5).
+The name of this file can be overriden by a command-line option.
+.TP
+.B /etc/dhcp_probe.pid
+Contains the program's processid.
+The name of this file can be overriden by a command-line option.
+.SH LIMITATIONS
+dhcp_probe 
+is not guaranteed to locate all unknown DHCP and BootP
+servers attached to a network.
+If a BootP server is configured so it only responds to certain clients
+(e.g. those with certain hardware addresses), it will not respond
+to the BOOTPREQUEST packet we sent.
+If a DHCP server is configured so it only responds to certain clients
+(e.g. those with certain hardware addresses or DHCP Client Identifiers),
+it will not respond to the packets we send that mimic DHCP clients
+in the INIT state.
+If a DHCP server is configured so it does not send DHCPNAK packets 
+to clients requesting topologically-inappropriate IP addresses,
+it will not respond the packets we send that mimic DHCP clients
+in the INIT-REBOOT and REBINDING states.
+.PP
+The upshot is that
+it is possible that 
+dhcp_probe
+will be unable to
+provoke some BootP and DHCP servers into responding at all.
+.PP
+Flushing out such servers can be extremely difficult. 
+One approach is to capture all UDP/IP packet destined to the BootP client
+port which cross your network; since most of these packets are unicast at Layer 2,
+capturing is only effective if 
+.I all 
+such packets must pass by your
+capture device's Ethernet interface (e.g. the capture device is
+located at a network choke point, or the network
+does not involve any Layer 2 switching).
+Another approach is to do UDP port scanning for all devices 
+listening on the BootP server port, and assume that those
+which are listening on that port are running a BootP or DHCP server.
+.SH BUGS
+The packet capture buffer size is limited; if a single request packet
+provokes more responses than will fit into the buffer, those that do
+not fit are silently dropped, without any diagnostic indicating
+that the buffer was too small.
+.PP
+We do not support FDDI interfaces at this time.
+.PP
+Because (re-)opening a packet capture file causes the file to be opened
+for writing (not appending),
+the contents of any existing packet capture file of the same name is lost when the
+program starts or receives a SIGUSR2 signal.
+If the file's previous contents should be preserved, move the old
+file aside before starting the program or sending it a SIGUSR2 signal.
+(This "feature" exists because opening a 
+.BR pcap (3) 
+savefile
+always involves writing a pcap header record to the start of the file, so
+pcap always opens the file using mode "w".)
+.PP
+Because 
+.BR pcap (3)
+opens the packet capture file with a simple 
+.BR fopen (3)
+without checking to see if the file already exists, dhcp_probe
+may be tricked into overwriting or corrupting an existing file.
+As dhcp_probe is run with root privileges, this is a serious concern.
+To avoid this problem, if you use the 
+.B \-o
+option, ensure that the directory that
+will contain the capture file is writable only by root.
+.PP
+The packet capture file that is written is unparseable after
+the first packet.
+E.g. if read with
+.BR tcpdump (8),
+it reports:
+.IR "tcpdump: pcap_loop: truncated dump file" .
+.SH "SEE ALSO"
+.LP
+.BR dhcp_probe.cf (5)
+.TP 10
+.BR pcap (3)
+(a.k.a. libpcap, a packet capture library),
+available from
+http://www.tcpdump.org.
+(An older version is available from
+ftp://ftp.ee.lbl.gov/libpcap.tar.Z.) 
+.TP 10
+.BR libnet (3)
+(a.k.a libwrite, a packet writing library),
+available from
+http://www.packetfactory.net/libnet

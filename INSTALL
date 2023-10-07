@@ -1,0 +1,118 @@
+Installing dhcp_probe
+
+
+Note that the file INSTALL.generic contains generic build and 
+installation instructions; it supplements this file (specifically,
+the steps involving 'configure', 'make', and 'make install').
+
+---
+
+1. Obtain and install libpcap, the packet capture library.
+It is available from http://www.tcpdump.org
+
+If libpcap isn't supported on your platform, you can't
+use dhcp_probe.
+
+Libpcap must be installed to compile dhcp_probe;
+we assume we'll find the libpcap library and header files
+in either /usr/local or the other usual places the compiler
+and linker will search.  If you've installed it elsewhere,
+when you run 'configure' below, remember to specify the
+--with-pcap=DIR option.
+
+--
+
+2. Obtain and Install libnet, the packet writing library.
+It is available from http://www.packetfactory.net/libnet
+
+If libnet isn't supported on your platform, you can't
+use dhcp_probe.
+
+Libnet must be installed to compile the ARP Bomber;
+we assume we'll find the libnet library and header files
+in either /usr/local or the other usual places the compiler
+and linker will search.  If you've installed it elsewhere,
+when you run 'configure' below, remember to specify the
+--with-libnet=DIR option.  We also assume we can find
+the 'libnet-config' executable (installed as part of libnet)
+somewhere in your path.
+
+---
+
+3. `cd' to the directory containing the package's source code and type
+`./configure' to configure the package for your system, possibly 
+specifying options such as --with-pcap=DIR or --with-libnet=DIR if these
+are needed to help it locate those packages.
+
+Note that because the present version of the program only runs on 
+Solaris 7 SPARC, built with gcc 2.95.2 (it has not been ported to other platforms),
+it ignores much of what 'configure' discovers about your platform.
+
+More information about running 'configure' is available in the INSTALL.generic
+file, and you may type './configure --help' for a summary of options.
+
+---
+
+4. Type `make' to compile the package.
+
+Ignore the following compiler warning:
+
+  bootp.c: In function `build_dhcp_payload':
+  bootp.c:78: warning: assignment from incompatible pointer type
+
+---
+
+5. Type `make install' to install the package.
+
+---
+
+6. Create a configuration file dhcp_probe.cf in an appropriate location.
+
+The default location for this file is /etc/dhcp_probe.cf, but you can put it
+elsewhere, as long as you specify the new location when you run the program
+using the appropriate command-line option.  
+
+A sample configuration file is supplied in the 'extras' directory; you may wish 
+to use it as a template.
+
+---
+
+7. To get started, try running it in the foreground and seeing if the debug messages 
+seem reasonable to you.  E.g. as root:
+
+   /usr/local/sbin/dhcp_probe -f -d 11 hme0
+
+The -f option prevents it from forking, and also causes all output to be
+sent to stderr instead of to syslog.  Debuglevel 11 will produce maximum
+debugging.  Specify the name of the interface on which to run, e.g. 'hme0'.
+
+---
+
+8. Arrange to have the program started automatically by root when your host starts.  
+
+Remove the -f option; this flag should never be specified except for debugging
+purposes.    
+
+You'll probably want to reduce the debuglevel; a debuglevel of 0 or 1 is generally
+a good choice for production use.
+
+Output will be directed to syslog (using the facility specified
+in defaults.h); you'll want to configure syslogd to do something reasonable
+with it.  (You can change the syslog facility name by editing defaults.h and
+recompiling.)  Alternatively, use the -l option to specify a logfile to receive output;
+this prevents syslog from being used.
+
+---
+
+9. If you want to capture packets received from unknown servers, add the -o
+option when starting up, to specify a capture file.  Be sure to specify 
+a directory for the capture file that no one may write to except root;
+see the dhcp_probe(8) man page for details.
+
+Since the program truncates this file each time it starts, you may want to
+modify the script you use to start the program, to save the old version of
+this file before starting the program.
+
+---
+
+10. Any additional tools you may find useful can be found in the 'extras' directory.

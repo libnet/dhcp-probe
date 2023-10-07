@@ -1,0 +1,71 @@
+Thu Feb 15 11:10:26 EST 2001  Irwin Tillman  (irwin@princeton.edu)
+
+	* README COPYING doc/dhcp_probe.8 doc/dhcp_probe.cf.5: product
+    is now generally available, also update legal notices.
+
+	* src/get_myeaddr.c src/get_myipaddr.c COPYING: better identify that
+	these came from "Unix Network Programming", Volume 1, Second Edition.
+
+    * configure.in: version number now 1.0.3.
+
+    * Version 1.0.3 released.
+
+Sat Jan 27 17:35:10 EST 2001  Irwin Tillman  (irwin@princeton.edu)
+
+	* convert to automake, reorganize from flat package into shallow package
+
+	* configure.in: replace AC_CANONICAL_SYSTEM with AC_CANONICAL_HOST
+
+	* m4/ist_sys_socket_ioctls_use_streams.m4: replace $target with $host,
+	add AC_REQUIRE([AC_CANONICAL_HOST])
+
+	* acconfig.h m4/ist_sys_socket_ioctls_use_streams.m4 m4/sys_errlist.m4:
+	move descriptions of macros for config.h.in into macro definitions
+
+	* config/config.guess config/config.sub: sync to current GNU versions.
+
+Sat Jan 20 16:06:39 EST 2001  Irwin Tillman  (irwin@princeton.edu)
+
+	* inet_aton.c (inet_aton): replaced version from "UNIX Network Programming: Volume 1",
+	Second Edition, by W. Richard Stevens with version from glibc 2.1.2
+	* COPYING.LIB: added, since inet_aton() is covered by it.
+	* aclocal.m4: AC_UNP_CHECK_TYPE.m4 added (from "UNIX Network Programming: Volume 1",
+	Second Edition, by W. Richard Stevens)
+	* configure.in accongif.h: check for u_int32_t typedef, ctype.h
+
+	* Makefile.in: remove -Wall from CFLAGS
+
+	* COPYING.GPL: moved GPL out of COPYING file into its own file
+
+	* dhcp_probe.cf.5 extras/dhcp_probe.cf.sample: legal_server keyword updated to 
+	reflect some BootP Relay Agents overwrite IP source address
+
+	* defaults.h: increase MAX_LEGAL_SERVERS from 16 to 64
+
+Thu Aug 17 11:12:12 EDT 2000  Irwin Tillman  (irwin@princeton.edu)
+
+	* Version 1.0.1 released.
+
+Thu Aug 17 11:00:17 EDT 2000  Irwin Tillman  (irwin@princeton.edu)
+
+	* configfile.c (read_configfile): Add alert_program_name keyword.
+	(GetAlert_program_name): New function.
+
+	* configfile.h (GetAlert_program_name): New function.
+
+	* dhcp_probe.c (process_response): Execute alert_program_name
+	when we receive an unexpected response packet.  
+	(main): Add signal handler for SIGCHLD.
+
+	* defs.h: Include <wait.h> and <unistd.h>.
+
+	* extras/dhcp_probe.cf.sample: add sample of alert_program_name.
+
+    * extras/dhcp_probe_notify: New file, a sample alert program.
+
+	* dhcp_probe.c (main): sleep() a second time at end of cycle if
+	first sleep() returns immediately as workaround.
+
+Tue Jun 27 13:58:48 EDT 2000  Irwin Tillman  (irwin@princeton.edu)
+
+	* Initial version.

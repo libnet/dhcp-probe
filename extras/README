@@ -1,0 +1,9 @@
+README for extras
+
+dhcp_probe.cf.sample is a sample dhcp_probe configuration file.  You may find
+it useful to use as a template.
+
+dhcp_probe_notify is a sample alert_program.  It is a Perl script that sends email.
+
+---
+

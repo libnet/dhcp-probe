@@ -1,0 +1,939 @@
+/* dhcp_probe:
+
+	Broadcast BOOTPREQUEST, DHCPDISCOVER, and DHCPREQUEST packets out specified interfaces,
+	listen for answers, discard those from known "good" servers, log the others.
+	The intent is to provide a way to find rogue BootP and DHCP servers.
+	This will only find rogue servers that happen to answer us; rogue servers configured to
+	only answer a selected set of clients will not be discovered.
+*/
+
+/* Copyright (c) 2000-2001, The Trustees of Princeton University, All Rights Reserved. */
+
+
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
+#include "defs.h"
+#include "defaults.h"
+
+#include "dhcp_probe.h"
+#include "bootp.h"
+#include "daemonize.h"
+#include "get_myeaddr.h"
+#include "get_myipaddr.h"
+#include "configfile.h"
+#include "report.h"
+#include "utils.h"
+
+#ifndef lint
+static const char rcsid[] = PASTE("dhcp_probe version ", VERSION);
+static const char copyright[] = "Copyright 2000, Princeton University.  All rights reserved.";
+static const char contact[] = "networking@princeton.edu";
+#endif
+
+/* initialize options to defaults */
+int debug = 0;
+int dont_fork = 0;
+char *config_file = CONFIG_FILE;
+char *pid_file = PID_FILE;
+char *capture_file = NULL;
+/* Init snaplen to the max number of bytes we might need to capture in response to a single packet we send.
+   This needs to include the complete size of the ethernet frame.
+   Of course, we can't really know this ahead of time; who knows how many servers out there might
+   answer us, and how large their responses might be?
+   The simplest approach is to just overestimate generously.  Although a normal reply is under 600 bytes,
+   nothing prevents someone from sending maximum-size Ethernet frames (1514 bytes) as responses.  
+   So if you want to be prepared to handle 20 responses to a single packet, you would set snaplen to 20*1514.
+   Note than since pcap_open_live() declares this an 'int', don't specify a value larger than that.
+*/
+int snaplen = CAPTURE_BUFSIZE;
+
+char *prog = NULL;
+char *logfile_name = NULL;
+
+int sockfd;
+
+int reread_config_file; /* for signal handler */
+int reopen_log_file; /* for signal handler */
+int reopen_capture_file; /* for signal handler */
+int quit_requested; /* for signal requested */
+
+pcap_t *pd = NULL;					/* libpcap - packet capture descriptor used for actual packet capture */
+pcap_t *pd_template = NULL;			/* libpcap - packet capture descriptor just used as template */
+
+struct libnet_link_int *nd = NULL;	/* libnet - link layer interface network descriptor */
+
+pcap_dumper_t *pcap_dump_d = NULL;	/* libpcap - dump descriptor */
+
+/* An array listing all the valid packet flavors we may write */
+enum dhcp_flavor_t packet_flavors[] = {BOOTP, DHCP_INIT, DHCP_SELECTING, DHCP_INIT_REBOOT, DHCP_REBINDING};
+
+/* An array containing ptrs to each of the packet frames we may write, runs parallel to packet_flavors[] */
+unsigned char * write_packets[NUM_FLAVORS];
+
+struct ether_addr my_eaddr;
+char *ifname;
+
+
+int 
+main(int argc, char **argv)
+{
+	int c, errflag=0;
+	struct in_addr my_ipaddr;
+	extern char *optarg;
+	extern int optind, opterr, optopt;
+	struct sigaction sa;
+	FILE *pid_fp;
+	char *cwd = CWD;
+	int i;
+
+	int write_packet_len;
+	int bytes_written;
+
+	unsigned int time_to_sleep;
+	sigset_t new_sigset, old_sigset;
+
+	/* for libpcap */
+	bpf_u_int32 netnumber,  netmask;
+	struct bpf_program bpf_code;
+	int linktype;
+	char pcap_errbuf[PCAP_ERRBUF_SIZE], pcap_errbuf2[PCAP_ERRBUF_SIZE];
+
+	/* for libnet */
+	char libnet_errbuf[LIBNET_ERRBUF_SIZE];
+
+	/* get progname = last component of argv[0] */
+	prog = strrchr(argv[0], '/');
+	if (prog)
+		prog++;
+	else 
+		prog = argv[0];
+
+	while ((c = getopt(argc, argv, "c:d:fhl:o:p:s:vw:")) != EOF) {
+		switch (c) {
+			case 'c':
+				if (optarg[0] != '/') {
+					fprintf(stderr, "%s: invalid config file '%s', must be an absolute pathname\n", prog, optarg);
+					errflag++;
+					break;
+				}
+				config_file = optarg;
+				break;
+			case 'd': {
+				char *stmp = optarg;
+				if ((sscanf(stmp, "%d", &debug) != 1) || (debug < 0)) {
+					fprintf(stderr, "%s: invalid debug level '%s'\n", prog, optarg);
+					debug = 0;
+					errflag++;
+				}
+				break;
+			}
+			case 'f':
+				dont_fork = 1;
+				break;
+			case 'h':
+				usage();
+				exit(0);
+			case 'l':
+				if (optarg[0] != '/') {
+					fprintf(stderr, "%s: invalid log file '%s', must be an absolute pathname\n", prog, optarg);
+					errflag++;
+					break;
+				}
+				logfile_name = optarg;
+				break;
+			case 'o':
+				if (optarg[0] != '/') {
+					fprintf(stderr, "%s: invalid capture file '%s', must be an absolute pathname\n", prog, optarg);
+					errflag++;
+					break;
+				}
+				capture_file = optarg;
+				break;
+			case 'p':
+				if (optarg[0] != '/') {
+					fprintf(stderr, "%s: invalid pid file '%s', must be an absolute pathname\n", prog, optarg);
+					errflag++;
+					break;
+				}
+				pid_file = optarg;
+				break;
+			case 's': {
+				char *stmp = optarg;
+				/* XXX sscanf() silently forces to integer range.  If you specify a value outside
+				   the range, and the conversion results in a positive value within the range, we
+				   will silently use the converted value.
+				*/
+				if ((sscanf(stmp, "%d", &snaplen) != 1) || (snaplen < 1)) {
+					fprintf(stderr, "%s: invalid capture buffer size '%s'\n", prog, optarg);
+					snaplen = CAPTURE_BUFSIZE;
+					errflag++;
+				}
+				break;
+			}
+			case 'v':
+				printf("DHCP Probe version %s\n", VERSION);
+				exit(0);
+			case 'w':
+				if (optarg[0] != '/') {
+					fprintf(stderr, "%s: invalid working directory '%s', must be an absolute pathname\n", prog, optarg);
+					errflag++;
+					break;
+				}
+				cwd = optarg;
+				break;
+			case '?':
+				usage();
+				exit(0);
+			default:
+				errflag++;
+				break;
+		}
+	}
+	if (optind == argc || errflag) {
+		usage();
+		exit(1);
+	}
+
+	if (! dont_fork)
+		daemonize();
+
+	/* initialize logging */
+	report_init(dont_fork, logfile_name);
+
+	if (chdir(cwd) < 0) {
+		report(LOG_ERR, "chdir(%s): %s", cwd, get_errmsg());
+		exit(1);
+	}
+
+	report(LOG_NOTICE, "starting, version %s", VERSION);
+
+	/* Before writing our pid, prepare to respond reasonably if we get any of our supported signals.
+			SIGHUP,SIGUSR1,SIGUSR2 - ignore until our internal data structs are ready for it
+			SIGINT,SIGTERM,SIGQUIT - leave default for now, so it will still kill us, but not try to look at uninit'd pcap structs
+	*/
+	if (dont_fork) { /* we didn't daemonize earlier */
+		/* ignore SIGHUP */
+		sigemptyset(&sa.sa_mask);
+		sa.sa_handler = SIG_IGN;
+		if (sigaction(SIGHUP, &sa, NULL) < 0) {
+			report(LOG_ERR, "sigaction: %s", get_errmsg());
+			exit(1);
+		}
+	} /* else we already set SIGHUP to ignore while daemonizing, so we don't need to do it again */
+	/* ignore SIGUSR1 */
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = SIG_IGN;
+	if (sigaction(SIGUSR1, &sa, NULL) < 0) {
+		report(LOG_ERR, "sigaction: %s", get_errmsg());
+		exit(1);
+	}
+	/* ignore SIGUSR2 */
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = SIG_IGN;
+	if (sigaction(SIGUSR2, &sa, NULL) < 0) {
+		report(LOG_ERR, "sigaction: %s", get_errmsg());
+		exit(1);
+	}
+
+
+	/* write pid file as soon as possible after (possibly) forking */
+	if ((pid_fp = open_for_writing(pid_file)) == NULL) {
+		report(LOG_ERR, "could not open pid file %s for writing", pid_file);
+		exit(1);
+	} else {
+		fprintf(pid_fp, "%d\n", (int) getpid());
+		fclose(pid_fp);
+	}
+
+	if (! read_configfile(config_file)) {
+		report(LOG_NOTICE, "exiting");
+		cleanup();
+		exit(1);
+	}
+
+	reread_config_file = 0; /* set by signal handler */
+	reopen_log_file = 0; /* set by signal handler */
+	reopen_capture_file = 0; /* set by signal handler */
+	
+	ifname = strdup(argv[optind]); /* interface name is a required final argument */
+
+	/* general purpose dgram socket for various uses */
+	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+		report(LOG_ERR, "socket(): %s", get_errmsg());
+		cleanup();
+		exit(1);
+	}
+
+	/* lookup netnumber and netmask for specified interface */
+	if (pcap_lookupnet(ifname, &netnumber, &netmask, pcap_errbuf) < 0) {
+		report(LOG_ERR, "%s: bad interface '%s': %s", prog, ifname, pcap_errbuf);
+		cleanup();
+		exit(1);
+	}
+
+	/* We need to know the Ethernet address for the named interface, but don't have a direct
+	   way to look that up.
+	   So we go the roundabout route of looking up the (first) IP address associated with that interface,
+	   then looking in our ARP cache for this IP address to see the associated ethernet address. */
+
+	/* lookup IP address for specified interface */
+	if (get_myipaddr(sockfd, ifname, &my_ipaddr) < 0) {
+		report(LOG_ERR, "couldn't determine IP addr for interface %s", ifname);
+		cleanup();
+		exit(1);
+	}
+
+	/* lookup ethernet address for specified IP address */
+	/* note that my_eaddr must be init'd before calling GetChaddr() */
+	if (get_myeaddr(sockfd, &my_ipaddr, &my_eaddr) < 0) {
+		report(LOG_ERR, "couldn't determine my ethernet addr for my IP address %s", inet_ntoa(my_ipaddr));
+		cleanup();
+		exit(1);
+	}
+
+	if (debug > 0)
+		report(LOG_INFO, "using interface %s (IP address %s, hardware address %s)", 
+			ifname, inet_ntoa(my_ipaddr), ether_ntoa(&my_eaddr));
+
+	/* open network link layer interface descriptor */
+	if ((nd = libnet_open_link_interface(ifname, libnet_errbuf)) == NULL ) {
+		report(LOG_ERR, "libnet_open_link_interface %s: %s", ifname, libnet_errbuf);
+		cleanup();
+		exit(1);
+	}
+
+
+	/* Now that we've set nd, we're ready to handle SIGINT, SIGTERM, SIGQUIT ourself */
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = catcher;
+	sa.sa_flags = 0;
+	if (sigaction(SIGINT, &sa, NULL) < 0) {
+		report(LOG_ERR, "sigaction: %s", get_errmsg());
+		cleanup();
+		exit(1);
+	}
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = catcher;
+	sa.sa_flags = 0;
+	if (sigaction(SIGTERM, &sa, NULL) < 0) {
+		report(LOG_ERR, "sigaction: %s", get_errmsg());
+		cleanup();
+		exit(1);
+	}
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = catcher;
+	sa.sa_flags = 0;
+	if (sigaction(SIGQUIT, &sa, NULL) < 0) {
+		report(LOG_ERR, "sigaction: %s", get_errmsg());
+		cleanup();
+		exit(1);
+	}
+
+
+
+	/* install SIGHUP handler to re-read config files on demand */
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = catcher;
+	sa.sa_flags = 0;
+	if (sigaction(SIGHUP, &sa, NULL) < 0) {
+		report(LOG_ERR, "sigaction: %s", get_errmsg());
+		cleanup();
+		exit(1);
+	}
+
+	/* install SIGUSR1 handler to close/re-open logfile (if logfile being used) */
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = catcher;
+	sa.sa_flags = 0;
+	if (sigaction(SIGUSR1, &sa, NULL) < 0) {
+		report(LOG_ERR, "sigaction: %s", get_errmsg());
+		cleanup();
+		exit(1);
+	}
+
+	/* install SIGUSR2 handler to close/re-open capture file (if capture file being used) */
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = catcher;
+	sa.sa_flags = 0;
+	if (sigaction(SIGUSR2, &sa, NULL) < 0) {
+		report(LOG_ERR, "sigaction: %s", get_errmsg());
+		cleanup();
+		exit(1);
+	}
+
+	/* install SIGCHLD handler to reap children (e.g. when alert_program_name is specified */
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = catcher;
+	sa.sa_flags = 0;
+	if (sigaction(SIGCHLD, &sa, NULL) < 0) {
+		report(LOG_ERR, "sigaction: %s", get_errmsg());
+		cleanup();
+		exit(1);
+	}
+
+	/* each packet we may write is the same length */
+	write_packet_len = LIBNET_ETH_H + LIBNET_IP_H + LIBNET_UDP_H + sizeof(struct bootp);
+
+	/* init all the frames we may write */
+	init_all_frames(NUM_FLAVORS, write_packet_len);
+
+
+	if (capture_file) { /* we are saving unexpected responses to a capture file */
+
+		/* open a packet capture descriptor
+		   This is NOT the one we'll actually use to read the interface to capture packets! 
+		   When we call pcap_dump_open() to open a savefile, we're supposed to pass it the packet capture descriptor;
+		   that's just so pcap_dump_open() can figure out what sort of interface and snaplen are involved -- it needs
+		   to squirrel that info away to write a good header into the dump file, and to know how many bytes to
+		   write for each packet.  The problem is that we're not going to keep capturing from a single
+		   packet capture descriptor; instead we open and close packet capture descriptors repeatedly, to allow
+		   us to NOT be listening when we don't need to (and also to vary some capture parms based on the changing cf file).  
+		   To avoid having to open and close our dump file repeatedly (each time writing a *unique* dump file), we will open
+		   a SECOND packet capture descriptor 'pd_template' which we'll keep open for the program's life.  That
+		   one will share the key characteristics with the ones we actually use to capture packets (i.e. interface and snaplen).
+		   Note this implies we must not let the user change those values during the run.
+		*/
+		if ((pd_template = pcap_open_live(ifname, snaplen, 0, 1, pcap_errbuf)) == NULL) {
+			report(LOG_ERR, "pcap_open_live %s: %s", ifname, pcap_errbuf2);
+			cleanup();
+			exit(1);
+		}
+	
+		/* XXX Note pcap_dump_open() does does an fopen() on capture_file with mode "w", and writes
+		   a pcap header to it.  It's up to the user to ensure the capture_file specified is safe.
+		   Since we are probably running as root, opportunities for abuse abound.  The user
+		   must be careful to specify a capture_file located in a directory no one else may write to,
+		   and to ensure the capture_file does not exist, or if it does, it safe to overwrite.
+		*/
+		if ((pcap_dump_d = pcap_dump_open(pd_template, capture_file)) == NULL) {
+			report(LOG_ERR, "pcap_dump_open: %s", pcap_geterr(pd_template));
+			cleanup();
+			exit(1);
+		}
+	}
+
+	while (1) { /* MAIN EVENT LOOP */
+		int promiscuous;
+		/* struct pcap_stat ps;	*/			/* to hold pcap stats */
+
+		if (debug > 10)
+			report(LOG_DEBUG, "starting new cycle");
+
+		/* handle signals.  
+		   If this is not the first time through the main event loop, this
+		   is where signals that arrived while we were sleeping get handled.  Note that
+		   we also handle signals at a second location in the main event loop (after capturing responses
+		   before we go to sleep).
+		*/
+		if (quit_requested) { /* set by signal handler */
+			if (debug > 1)
+				report(LOG_INFO, "received request to quit");
+			break;
+		}
+		if (reopen_log_file) { /* set by signal handler */
+			close_and_reopen_log_file(logfile_name);
+			reopen_log_file = 0;
+		}
+		if (reopen_capture_file) { /* set by signal handler */
+			close_and_reopen_capture_file();
+			reopen_capture_file = 0;
+		}
+		if (reread_config_file)	{ /* set by signal handler */
+			reconfigure(write_packet_len);
+			reread_config_file = 0;
+		}
+
+
+		/* We open (and later close) the packet capture descriptor on each packet sent (rather than just
+		   once for the entire program) because a change in the configfile (specifically, 'chaddr')
+		   can change whether we need to listen promiscuously or not, and GetResponse_wait_time().
+		   And we need to do it for each sent packet (as opposed to each cycle) to be able to specify
+		   a fresh timeout each time, apparently (???).
+		   Too, if we are listening promiscuously and the cycle_time is long, we'd prefer to leave the
+		   interface in promiscuous mode as little as possible, since that can affect the host's performance.
+		*/
+
+		/* If we're going to claim a chaddr different than my_eaddr, some of the responses
+		   may come back to chaddr (as opposed to my_eaddr or broadcast), so we'll need to
+		   listen promiscuously.
+		   If we're going to claim an ether_src different than my_eaddr, in theory that should
+		   make no difference; bootp/dhcp servers should rely on chaddr, not ether_src.  Still,
+		   it's possible there's a server out there that does it wrong, and might therefore mistakenly
+		   send responses to ether_src.  So lets also listen promiscuously if ether_src != my_eaddr.
+		*/
+		if (bcmp(GetChaddr(), &my_eaddr, sizeof(struct ether_addr)) ||
+		    bcmp(GetEther_src(), &my_eaddr, sizeof(struct ether_addr)))
+			promiscuous = 1;
+		else
+			promiscuous = 0;
+
+	
+
+		for (i = 0; i < NUM_FLAVORS; i++) { /* write one flavor packet and listen for answers */
+			int pcap_rc;
+			int pcap_open_retries;
+
+			/* We set up for packet capture BEFORE writing our packet, to minimize the delay
+			   between our writing and when we are able to start capturing.  (I cannot tell from
+			   the pcap(3) doc whether packets matching the filter that arrive after pcap_open_live()
+			   and before pcap_loop() are actually captured and buffered.  I assume not, if only because
+			   that would imply that until calling pcap_setfilter(), we'd be capturing and buffering more than
+			   we wanted!
+			*/
+
+			/* open packet capture descriptor */
+			/* XXX On Solaris 7, sometimes pcap_open_live() fails with a message like:
+					pcap_open_live qfe0: recv_ack: info unexpected primitive ack 0x8
+			   It's not clear what causes this, or what the 0x8 code indicates.
+			   The error appears to be transient; retrying sometimes will work, so I've wrapped the call in a retry loop.
+			   I've also added a delay after each failure; perhaps the failure has something to do with the fact that
+			   we call pcap_open_live() so soon after pcap_close() (for the second and succeeding packets in each cycle);
+			   adding a delay might help in that case.
+			*/
+			pcap_open_retries = PCAP_OPEN_LIVE_RETRY_MAX;
+			while (pcap_open_retries--) {
+				if ((pd = pcap_open_live(ifname, snaplen, promiscuous, GetResponse_wait_time(), pcap_errbuf)) != NULL) {
+					break; /* success */
+				} else { /* failure */
+					if (pcap_open_retries == 0) {
+						report(LOG_DEBUG, "pcap_open_live(%s): %s; retry count (%d) exceeded, giving up", ifname, pcap_errbuf, PCAP_OPEN_LIVE_RETRY_MAX);
+						cleanup();
+						exit(1);
+					} else {
+						if (debug > 1)
+							report(LOG_DEBUG, "pcap_open_live(%s): %s; will retry", ifname, pcap_errbuf);
+						sleep(PCAP_OPEN_LIVE_RETRY_DELAY); /* before next retry */
+					}
+				} /* failure */
+			}
+
+			/* make sure this interface is ethernet */
+			linktype = pcap_datalink(pd);
+			if (linktype != DLT_EN10MB) {
+				report(LOG_ERR, "interface %s link layer type %d not ethernet", ifname, linktype);
+				cleanup();
+				exit(1);
+			}
+			/* compile bpf filter to select just udp/ip traffic to udp port bootpc  */
+			if (pcap_compile(pd, &bpf_code, "udp dst port bootpc", 1, netmask) < 0) {
+				report(LOG_ERR, "pcap_compile: %s", pcap_geterr(pd));
+				cleanup();
+				exit(1);
+			}
+			/* install compiled filter */
+			if (pcap_setfilter(pd, &bpf_code) < 0) {
+				report(LOG_ERR, "pcap_setfilter: %s", pcap_geterr(pd));
+				cleanup();
+				exit(1);
+			}
+
+
+			/* write one packet */
+
+			if (debug > 10)
+				report(LOG_DEBUG, "writing packet %d", i);
+
+			bytes_written = libnet_write_link_layer(nd, ifname, write_packets[i], write_packet_len);
+			if (bytes_written < write_packet_len)
+				report(LOG_ERR, "libnet_write_link_layer: for packet flavor %i: bytes written: %d (expected %d)", i, bytes_written, write_packet_len);
+
+
+			/* XXX Are response packets lost if they arrive between our call (above) to libnet_write_link_layer(), 
+			   and our call (below) to pcap_dispatch() ?   It's a long enough window for packets to arrive,
+			   especially if debugging is high enough that we log a message below.
+			*/
+
+			/* listen for all replies until the timeout specified in pcap_open_live() expires.
+			   For each reply, 'process_response' is called with ptrs to the reply packet.
+
+			   XXX If you didn't specify enough buffer space, it appears that the packets that didn't fit
+			   are silently lost; pcap_dispatch() doesn't provide any indication via a negative rc, and
+			   even pcap_stats() doesn't show these as drops, so we can't provide some indication to the
+			   user that the buffer specified is too small.
+			*/
+
+			if (debug > 10)
+				report(LOG_DEBUG, "listening for answers for %d milliseconds", GetResponse_wait_time());
+
+
+			/* XXX I often find that pcap_dispatch() returns well before the timeout specified earlier.
+			   I ensure that there's no alarm() still left over before we start, and also ensure we don't
+			   get interrupted by SIGCHLD (possible since process_response() could fork an alert_program child).
+			   But we STILL often return from pcap_dispatch() too soon!
+			*/
+
+			alarm(0); /* just in case a previous alarm was still left */
+
+			sigemptyset(&new_sigset);
+			sigaddset(&new_sigset, SIGCHLD);
+			sigprocmask(SIG_BLOCK, &new_sigset, &old_sigset);  /* block SIGCHLD */
+
+			pcap_rc = pcap_dispatch(pd, -1, process_response, NULL);
+
+			sigprocmask(SIG_SETMASK, &old_sigset, NULL);  /* unblock SIGCHLD */
+
+			if (pcap_rc < 0)
+				report(LOG_ERR, "pcap_dispatch(): %s", pcap_geterr(pd));
+			else if (debug > 10)
+				report(LOG_DEBUG, "done listening, captured %d packets", pcap_rc);
+
+			/* I was hoping that perhaps pcap_stats() would return a nonzero number of packets dropped when
+			   the buffer size specified to pcap_open_live() turns out to be too small -- so we could
+			   provide some indication that you need to specify a larger buffer.  Alas, even in that situation
+			   the ps_drop field is still 0.
+			 *
+			 *	if (pcap_stats(pd, &ps) < 0) {
+			 *		report(LOG_ERR, "pcap_stats(): %s", pcap_geterr(pd));
+			 *	} else if (debug > 10) {
+			 *		report(LOG_DEBUG, "pcap_stats: packets received %u, packets dropped %u",  ps.ps_recv, ps.ps_drop);
+			 *	}
+			 */
+
+			/* close packet capture descriptor */
+			pcap_close(pd); 
+
+			/* check for 'quit' request after each packet, since waiting until end of probe cycle
+			   would impose a substantial delay. */
+			if (quit_requested) { /* set by signal handler */
+				if (debug > 1)
+					report(LOG_INFO, "received request to quit");
+				break;
+			}
+			/* don't check for requests to re-read configuration file here, because that sort of change
+			   requires we construct new packets to send, not something to do in the middle of a cycle...
+			   and can alter the response_timeout value used within the cycle. */
+			/* don't check for requests to close-and-reopen the logfile, or close-and-reopen the
+			   capture file here.  (should we?) */
+
+		} /* write each flavor packet and listen for answers */
+
+		if (debug > 10)
+			report(LOG_DEBUG, "cycle complete, going to sleep for %d seconds", GetCycle_time());
+
+		/* Although we already handled signals at the top of the main event loop,
+		   we do so again here, because the time through the main loop can be substantial due
+		   to the time we capture packets, and signals may have come in...we don't want to postpone
+		   handling them until we finish sleeping as well.
+		*/
+		if (quit_requested) { /* set by signal handler */
+			if (debug > 1)
+				report(LOG_INFO, "received request to quit");
+			break;
+		}
+		if (reopen_log_file) { /* set by signal handler */
+			close_and_reopen_log_file(logfile_name);
+			reopen_log_file = 0;
+		}
+		if (reopen_capture_file) { /* set by signal handler */
+			close_and_reopen_capture_file();
+			reopen_capture_file = 0;
+		}
+		if (reread_config_file)	{ /* set by signal handler */
+			reconfigure(write_packet_len);
+			reread_config_file = 0;
+		}
+
+		/* We allow must signals that come in during our sleep() to interrupt us.  E.g. we want to cut short
+		   our sleep when we're signalled to exit.  But we must block SIGCHLD during our sleep.  That's because
+		   if we forked an alert_program child above, its termination will likely happen while we're sleeping;
+		   we'll end up being interrupted by the SIGCHLD almost immediately, cutting short our sleep and forcing
+		   us to proceed to the next probe cycle far too soon.
+		*/
+
+		alarm(0); /* cancel any alarm left over, just in-case something's left by libpcap */
+		time_to_sleep = GetCycle_time();
+
+		sigemptyset(&new_sigset);
+		sigaddset(&new_sigset, SIGCHLD);
+		sigprocmask(SIG_BLOCK, &new_sigset, &old_sigset);  /* block SIGCHLD */
+
+		sleep(time_to_sleep);
+
+		sigprocmask(SIG_SETMASK, &old_sigset, NULL);  /* unblock SIGCHLD */
+
+		alarm(0); /* cancel any alarm left over, just in case we were interrupted */
+
+	} /* MAIN EVENT LOOP */
+
+
+	/* we only reach here after receiving a signal requesting we quit */
+
+	/* shut down write link interface */
+	if (nd) { 
+		if (libnet_close_link_interface(nd) < 0) {
+			report(LOG_ERR, "libnet_close_link_interface failed");
+		}
+	}
+
+	if (pd_template) /* only used if a capture file requested */
+		pcap_close(pd_template); 
+
+	report(LOG_NOTICE, "exiting");
+
+	cleanup();
+	exit(0);
+}
+
+
+void
+process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *packet)
+{
+/* Process one response packet. 
+   We are called by pcap_dispatch() for each packet it captures.
+   When we return, control returns to pcap_dispatch() so it can continue capturing packets.
+*/
+
+	struct ether_header *ether_header; /* access ethernet header */
+	struct ip *ip_header;				/* access ip header */
+	bpf_u_int32 ether_len;		/* bpf_u_int32 from pcap.h */
+
+	/* fields parsed out from packet*/
+	struct ether_addr ether_dhost, ether_shost;
+	struct in_addr ip_src, ip_dst;
+	/* string versions of same */
+	char ether_dhost_str[MAX_ETHER_ADDR_STR], ether_shost_str[MAX_ETHER_ADDR_STR];
+	char ip_src_str[MAX_IP_ADDR_STR], ip_dst_str[MAX_IP_ADDR_STR];
+
+	char *alert_program_name;
+
+	if (debug > 10)
+		report(LOG_DEBUG, "   captured a packet");
+
+	if ((pkthdr->caplen < (ether_len = pkthdr->len)) && (debug > 1)) {
+		report(LOG_WARNING, "interface %s, packet truncated (ethernet frame length %u, captured %u), ignoring", ifname, ether_len, pkthdr->caplen);
+		return;
+	}
+
+	if ((ether_len < sizeof(sizeof(struct ether_header))) && (debug > 1)) {
+		report(LOG_WARNING, "interface %s, short packet (got %d, smaller than an Ethernet header)", ifname, ether_len);
+		return;
+	}
+
+	/* we use ether_header to access the Ethernet header */
+	ether_header = (struct ether_header *) packet;
+
+	/* parse fields out of ethernet header for easier access */
+	bcopy(&(ether_header->ether_dhost), &ether_dhost, sizeof(ether_dhost));
+	bcopy(&(ether_header->ether_shost), &ether_shost, sizeof(ether_shost));
+	/* create printable versions of the fields we parsed above */
+	bcopy(ether_ntoa(&ether_dhost), &ether_dhost_str, sizeof(ether_dhost_str));
+	bcopy(ether_ntoa(&ether_shost), &ether_shost_str, sizeof(ether_shost_str));
+
+	if (debug > 10)
+		report(LOG_DEBUG, "     interface %s, from ether %s to %s", ifname, ether_shost_str, ether_dhost_str);
+
+	if (ether_len < sizeof(sizeof(struct ether_header)) + sizeof(struct ip)) {
+		report(LOG_WARNING, "interface %s, short packet (got %d, smaller than IP header in Ethernet)", ifname, ether_len);
+		return;
+	}	
+
+	/* we use ip_header to access the IP header */
+	ip_header = (struct ip *) (packet + sizeof(struct ether_header));
+
+	/* parse fields out of ip header for easier access */
+	bcopy(&(ip_header->ip_src), &ip_src, sizeof(ip_header->ip_src));
+	bcopy(&(ip_header->ip_dst), &ip_dst, sizeof(ip_header->ip_dst));
+	/* create printable versions of the fields we parsed above */
+	bcopy(inet_ntoa(ip_src), &ip_src_str, sizeof(ip_src_str));
+	bcopy(inet_ntoa(ip_dst), &ip_dst_str, sizeof(ip_dst_str));
+
+	if (debug > 10)
+		report(LOG_DEBUG, "     from IP %s to %s", ip_src_str, ip_dst_str);
+
+	/* ignore answers coming from legal IPsrc */
+	if (isLegalServersMember(&ip_src)) {
+		if (debug > 10)
+			report(LOG_DEBUG, "     this is a legal server, ignoring");
+		return;
+	}
+
+	/* at this point we know the responder is unexpected */
+
+	/* report unexpected server */
+	/* Producing this log message is our entire reason for existance. */
+	report(LOG_WARNING, "received unexpected response on interface %s from BootP/DHCP server with IP source %s (ether src %s)", ifname, ip_src_str, ether_shost_str);
+
+	/* also save the response packet if we are writing to capture file */
+	if (pcap_dump_d) {
+		pcap_dump((u_char *) pcap_dump_d, pkthdr, packet);
+	}
+
+	/* Also call the alert_program_name if the user has specified one */
+	/* We must fetch it anew as it may have changed due to configfile change */
+	alert_program_name = GetAlert_program_name();
+	if (alert_program_name) {
+		/* We run it in a child, so we don't block waiting for it to return. */
+		pid_t pid;
+		if ((pid = fork()) < 0) {
+			report(LOG_ERR, "can't fork to run %s: %s", alert_program_name, get_errmsg());
+			/* just skip running alert_program_name, but keep running since we're still fine */
+		} else if (pid == 0) { /* child */
+			/* We do allow child to inherit fd 0,1,2.  If we're logging to stderr, we want child to have it too. */
+			if (sockfd) /* We don't want child to inherit the general purpose dgram socket */
+				close(sockfd);
+			if (nd) /* We don't want child to inherit to inherit libnet link layer network descriptor */
+				libnet_close_link_interface(nd);
+			if (pd) /* We don't want child to inherit packet capture descriptor, nor packet dumpfile descriptor. */
+				pcap_close(pd);
+			if (pcap_dump_d)
+				pcap_dump_close(pcap_dump_d);
+			if (execl(alert_program_name, alert_program_name, prog, ifname, ip_src_str, ether_shost_str, (char *) 0 ) < 0) {
+				report(LOG_ERR, "can't execute alert_program_name '%s': %s", alert_program_name, get_errmsg());
+				exit(0);  /* child exits */
+			}
+		}
+
+	}
+	
+	return;
+}
+
+
+void
+reconfigure(const int write_packet_len)
+{
+/* Perform all necessary functions to handle a request to reconfigure.
+   Must not be called until after initial configuration is complete.
+   Needs to know the write_packet_len, only so it can pass it to init_all_frames()
+   Modifies the global write_packets[].
+*/
+   
+	int i;
+
+	if (! read_configfile(config_file)) {
+		report(LOG_NOTICE, "exiting");
+		cleanup();
+		exit(1);
+	}
+
+	/* Contents of the packets we send may need to change as a result of change
+	   to the configuration.  Free the packets we've already constructed, and build new ones. */
+	for (i = 0; i < NUM_FLAVORS; i++) {
+		libnet_destroy_packet(&write_packets[i]);
+	}
+
+	init_all_frames(NUM_FLAVORS, write_packet_len);
+
+	return;
+}
+
+
+void
+close_and_reopen_capture_file(void) 
+{
+/*	Close and re-open capture file.
+	If we are not capturing to a file, return silently.
+	Returns on success, exits on error.
+
+	Note that since pcap_dump_open() opens the file with mode "w" and writes a pcap header to it,
+	if you want to keep the existing capture file's contents, you must move the existing 
+	capture file aside before this routine is called.  In practice, that means you move the
+	file aside first, then send a signal triggering the close and re-open.
+*/
+
+	if (pcap_dump_d) { /* a capture file was already open */
+		if (debug > 1)
+			report(LOG_NOTICE, "closing capture file");
+
+		/* close */
+		 pcap_dump_close(pcap_dump_d);
+
+		/* re-open */
+		/* XXX Note pcap_dump_open() does does an fopen() on capture_file with mode "w", and writes
+		   a pcap header to it.  It's up to the user to ensure the capture_file specified is safe.
+		   Since we are probably running as root, opportunities for abuse abound.  The user
+		   must be careful to specify a capture_file located in a directory no one else may write to,
+		   and to ensure the capture_file does not exist, or if it does, it safe to overwrite.
+		*/
+		if ((pcap_dump_d = pcap_dump_open(pd_template, capture_file)) == NULL) {
+			report(LOG_ERR, "close_and_reopen_capture_file: pcap_dump_open: %s", pcap_geterr(pd_template));
+			cleanup();
+			exit(1);
+		}
+
+		if (debug > 1)
+			report(LOG_NOTICE, "re-opened capture file");
+
+	}
+	return;
+}
+
+
+void
+catcher(int sig)
+{
+/*	Signal catcher. */
+
+	if ((sig == SIGINT) || (sig == SIGTERM) || (sig == SIGQUIT))  { /* quit gracefully */
+		quit_requested = 1;
+		return;
+
+	} else if (sig == SIGHUP) { /* re-read config file */
+		/* Doing the reread while in the signal handler is way too dangerous.
+		   We'll do it at the start or end of the next main event loop.
+		*/
+		reread_config_file = 1;
+		return;
+
+	} else if (sig == SIGUSR1) { /* close and re-open logfile (if logfile being used) */
+		/* Doing the close and reopen in the signal handler is way too dangerous.
+		   We'll do it at the start or end of the next main event loop.
+		*/
+		reopen_log_file = 1;
+		return;
+	} else if (sig == SIGUSR2) { /* close and re-open capture file (if capture file being used) */
+		/* Doing the close and reopen in the signal handler is way too dangerous.
+		   We'll do it at the start or end of the next main event loop.
+		*/
+		reopen_capture_file = 1;
+		return;
+	} else if (sig == SIGCHLD) { /* reap, e.g. calls to user-specified alert_program_name */
+		int stat;
+
+		while ((waitpid(-1, &stat, WNOHANG)) > 0)
+			;
+		return;
+	}
+		
+	return;
+}
+
+
+void
+cleanup(void)
+{
+/*	Cleanup tasks at exit. */
+
+	if (pcap_dump_d) /* capture file is open */
+		pcap_dump_close(pcap_dump_d);
+
+	if (pid_file)
+		unlink(pid_file); /* may fail if file was never written */
+
+	return;
+}
+
+
+void
+usage(void)
+{
+/*	Print usage message and return. */
+
+	fprintf(stderr, "Usage: %s [-c config_file] [-d debuglevel] [-f] [-h] [-l log_file] [-o capture_file] [-p pid_file] [-s capture_bufsize] [-v] [-w cwd] interface_name\n", prog);
+	fprintf(stderr, "   -c config_file                 override default config file [%s]\n", CONFIG_FILE);
+	fprintf(stderr, "   -d debuglevel                  enable debugging at specified level\n");
+	fprintf(stderr, "   -f                             don't fork (only use for debugging)\n");
+	fprintf(stderr, "   -h                             display this help message then exit\n");
+	fprintf(stderr, "   -l log_file                    log to file instead of syslog\n");
+	fprintf(stderr, "   -o capture_file                enable capturing of unexpected answers\n");
+	fprintf(stderr, "   -p pid_file                    override default pid file [%s]\n", PID_FILE);
+	fprintf(stderr, "   -s capture_bufsize             override default capture bufsize [%d]\n", CAPTURE_BUFSIZE);
+	fprintf(stderr, "   -v                             display version number then exit\n");
+	fprintf(stderr, "   -w cwd                         override default working directory [%s]\n", CWD);
+	fprintf(stderr, "   interface_name                 name of ethernet interface\n");
+
+	return;
+}
+

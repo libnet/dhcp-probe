@@ -1,0 +1,23 @@
+TODO for dhcp_probe
+
+Fix whatever bug is causing the capture file to be unparseable after the
+first packet.  (After one packet, tcpdump reports: 
+"tcpdump: pcap_loop: truncated dump file".
+
+Port to other platforms; stop ignoring most of what autoconf learns.
+(Although the build process is autoconf-based, at
+this time the program ignores almost everything autoconf discovers
+about your system.  The product was developed on Solaris 7 with gcc 2.95.2,
+and has not been ported to other platforms.  Despite the use of autoconf, the
+code merrily makes assumptions that are only valid on Solaris 7.)
+The use of autoconf here is mostly to provide a framework in case the
+product is ported to other platforms in the future.
+
+Allow specification of the syslog facility name on the commandline?
+
+The legal_servers array initialized by read_configfile() should 
+be created dynamically, rather than sized via compile-time definitions.
+
+Add support for FDDI interfaces
+
+Figure out how to eliminate the compiler warning in bootp.c

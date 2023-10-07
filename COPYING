@@ -1,0 +1,227 @@
+COPYING dhcp_probe
+
+This software was created by the Network Systems Group at Princeton University's
+Office of Computing and Information Technology, networking@princeton.edu.
+It was written by Irwin Tillman.
+
+Portions of this software are copyrighted by other organizations or individuals;
+see below for details one which portions, and what legal notices apply
+to each of those portions.
+
+Those portions of the software which have not identified below as copyrighted
+by other organizations or individuals are themselves Copyright (c) 2000-2001, 
+The Trustees of Princeton University, All Rights Reserved.
+
+Redistribution and use in source and binary form, with or without modification,
+are permitted provided that the following conditions are met:
+
+* The redistribution, use, or modification shall not violate any of the additional 
+  copyrights, patents, or other restrictions below.
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.  
+
+* Redistributions in binary form must reproduce the above copyright notice, this
+  list of conditions and the following disclaimer in the documentation and/or
+  other materials provided with the distribution.
+
+* If redistribution includes any portion of the software that is copyrighted by other 
+  organizations or individuals (as detailed below), the copyright notice associated with 
+  that portion of the software also must be retained.
+
+* Neither the names of the individual authors or contributos, nor the
+  name of "Princeton University" may be used to endorse or promote products 
+  derived from this software without specific prior written permission.
+
+This software is provided "as is" and any express or implied
+warranties, including, but not limited to, the implied warranties of
+mechantability and fitness for a particular purpose are disclaimed.  In
+no event shall the authors or Princeton University be liable for any
+direct, indirect, incidental, special exemplary, or consequential
+damages (including, but not limited to, procurement of substitute goods
+or services; loss of use, data, or profits; or business interruption)
+however caused and on any theory of liability, whether in contract,
+strict liability, or tort (including negligence or otherwise) arising
+in any way out of the use of this software, even if advised of the
+possibility of such damage.
+
+=========================================================================
+
+
+The inet_aton() function in lib/inet_aton.c came from glibc 2.1.2 (the GNU C Library),
+which is covered by the GNU Library General Public License, Version 2.
+See COPYING.LIB for details.
+
+The file also contains several copyright statements, which are reproduced below.
+
+/*
+ * ++Copyright++ 1983, 1990, 1993
+ * -
+ * Copyright (c) 1983, 1990, 1993
+ *    The Regents of the University of California.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *  This product includes software developed by the University of
+ *  California, Berkeley and its contributors.
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ * -
+ * Portions Copyright (c) 1993 by Digital Equipment Corporation.
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies, and that
+ * the name of Digital Equipment Corporation not be used in advertising or
+ * publicity pertaining to distribution of the document or software without
+ * specific, written prior permission.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND DIGITAL EQUIPMENT CORP. DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS.   IN NO EVENT SHALL DIGITAL EQUIPMENT
+ * CORPORATION BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+ * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+ * SOFTWARE.
+ * -
+ * --Copyright--
+ */
+
+
+=========================================================================
+
+Parts of src/report.c and lib/strerror.c came from CMU dhcpd version 3.3.7.
+The following notice applies to them:
+
+        Copyright 1996 by Carnegie Mellon University
+
+                      All Rights Reserved
+
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
+provided that the above copyright notice appear in all copies and that
+both that copyright notice and this permission notice appear in
+supporting documentation, and that the name of CMU not be
+used in advertising or publicity pertaining to distribution of the
+software without specific, written prior permission.
+
+CMU DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
+ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
+CMU BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR
+ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+SOFTWARE.
+
+
+=========================================================================
+
+A number of items came from the sample code associated with 
+"UNIX Network Programming: Volume 1", Second Edition, by W. Richard Stevens,
+published by Prentice Hall PTR.  
+That publication is Copyright (c) 1998 Prentice Hall PTR.
+These items are:
+
+  src/daemonize.c
+  src/get_myeaddr.c
+  src/get_myipaddr.c
+  AC_CHECK_FUNC_PROTO  in aclocal.m4 and m4/ac_check_func_proto.m4
+  AC_UNP_CHECK_TYPE    in aclocal.m4 and m4/ac_unp_check_type.m4
+
+The sample code associated with that book is available from:
+ftp://ftp.kohala.com/pub/rstevens/unpv12e.tar.gz
+
+
+=========================================================================
+
+The macro AC_CHECK_STRUCT_FOR in aclocal.4 is copyrighted by Wes Hardaker
+<wjhardaker@ucdavis.edu>, and was obtained from the GNU autoconf macro archive
+at http://research.cys.de/autoconf-archive/
+
+Permission has been granted to use and distribute it under the following license,
+which is a modified version of the GNU General Public License version 2:
+
+ Every Autoconf macro presented on this web site is free software; you can
+ redistribute it and/or modify it under the terms of the GNU General Public
+ License as published by the Free Software Foundation; either version 2, or (at
+ your option) any later version.
+
+ They are distributed in the hope that they will be useful, but WITHOUT ANY
+ WARRANTY; without even the implied warranty of MERCHANTABILITY
+ or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+ License for more details. (You should have received a copy of the GNU General
+ Public License along with this program; if not, write to the Free Software
+ Foundation, Inc., 59 Temple Place -- Suite 330, Boston, MA 02111-1307,
+ USA.)
+
+ As a special exception, the Free Software Foundation gives unlimited
+ permission to copy, distribute and modify the configure scripts that are the
+ output of Autoconf. You need not follow the terms of the GNU General Public
+ License when using or distributing such scripts, even though portions of the
+ text of Autoconf appear in them. The GNU General Public License (GPL) does
+ govern all other use of the material that constitutes the Autoconf program.
+
+ Certain portions of the Autoconf source text are designed to be copied (in certain
+ cases, depending on the input) into the output of Autoconf. We call these the
+ "data" portions. The rest of the Autoconf source text consists of comments plus
+ executable code that decides which of the data portions to output in any given
+ case. We call these comments and executable code the "non-data" portions.
+ Autoconf never copies any of the non-data portions into its output.
+
+ This special exception to the GPL applies to versions of Autoconf released by the
+ Free Software Foundation. When you make and distribute a modified version
+ of Autoconf, you may extend this special exception to the GPL to apply to your
+ modified version as well, *unless* your modified version has the potential to
+ copy into its output some of the text that was the non-data portion of the
+ version that you started with. (In other words, unless your change moves or
+ copies text from the non-data portions to the data portions.) If your
+ modification has such potential, you must delete any notice of this special
+ exception to the GPL from your modified version.
+
+
+=========================================================================
+
+
+A number of items are based on code from LPRng-2.0.8:
+
+  * the macros AC_SYS_NERR, AC_SYS_ERRLIST, AC_DECL_SYS_ERRLIST, AC_DECL_SYS_ERR_DECL.
+    These are in aclocal.m4 and also in m4/sys_errlist.m4.
+    The macros are based very closely on code from LPRng's configure.in file.
+
+  * much of lib/strerror.c
+
+The macros are based very closely on code from LPRng's configure.in file.
+
+LPRng-2.0.8 is distributed under the GNU General Public License (see the
+COPYING.GPL file).
+
+
+=========================================================================
+
+The file INSTALL.generic is the generic installation INSTALL document provided
+with many GNU products.  This document is subject to the GNU General Public License
+(see the COPYING.GPL file).
+
+=========================================================================
