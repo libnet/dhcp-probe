@@ -1,6 +1,23 @@
 dhcp_probe NEWS - history of user-visible changes.
 
+
 See the file ChangeLog for the details of all changes.
+
+
+Version 1.2.2 - October 15 2008, by Irwin Tillman
+
+* The default name of the pid file has changed from /etc/dhcp_probe.pid
+  to /var/run/dhcp_probe.pid.  You can still override the default by
+  specifying the '-p pidfile' command line option.
+
+* New -T option to enable the 'socket receive timeout' feature.
+  This may work around a problem on some platforms where the program
+  waits forever for responses after sending a probe packet.
+  This new feature does not work on all platforms.
+
+* When exiting, the program will more consistently log an "exiting" 
+  message.
+
 
 Version 1.2.1 - February 28 2008, by Irwin Tillman
 

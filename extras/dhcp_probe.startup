@@ -1,0 +1,156 @@
+#!/sbin/sh
+#
+# /etc/init.d/dhcp_probe [-v] start|stop
+#
+# Start/Stop the dhcp_probe daemon.
+# (The network and streams should already be built by the time the daemon starts.)
+#
+# If the daemon is already executing, don't re-execute it.
+# To try to minimize the likelihood that the processid stored in the PID file corresponds
+# to an unrelated process (common with startup scripts), we'll clear the contents of the
+# PID file when we kill the daemon using this script.  And when we find a pid in that file,
+# we'll both check that a process with that pid exists, and that the commandname for the process
+# looks like the one we're interested in.
+#
+# To customize this for other daemons, you may only need to change the parameters below.
+#
+# Reasonable links might be:
+# /etc/rcS.d/K23dhcp_probe
+# /etc/rc0.d/K23dhcp_probe
+# /etc/rc1.d/K23dhcp_probe
+# /etc/rc2.d/K02dhcp_probe
+# /etc/rc3.d/S23dhcp_probe
+
+PATH=/usr/bin:/bin
+
+SERVERROOT=/usr/local/sbin
+
+# We run on the ce0 interface
+INTERFACE=ce0
+# Set this to '-Q vlan_id' to send frames with 802.1Q VLAN ID vlan_id, else set to nothing for no 802.1Q tag
+VLAN=
+
+
+PIDFILE=/var/run/dhcp_probe.$INTERFACE.pid
+CONFIGFILE=/etc/dhcp_probe.$INTERFACE.cf
+CAPTUREDIR=/var/local/logs
+CAPTUREFILENAME=dhcp_probe.$INTERFACE.capture
+CAPTUREFILE=$CAPTUREDIR/$CAPTUREFILENAME
+MAX=20
+
+STARTCOMMAND="$SERVERROOT/dhcp_probe -d 1 -c $CONFIGFILE -o $CAPTUREFILE -p $PIDFILE $VLAN $INTERFACE"
+
+EXECUTABLE=$SERVERROOT/dhcp_probe	# must exist before starting
+PS_SEARCH="dhcp_probe"				# string to look for in process name to decide it it looks reasonable
+CWD=/tmp
+PROGNAME="dhcp_probe"				# progname to print in echo output
+
+
+# core dumps, etc. in CWD
+cd $CWD
+
+# I do want group systems to be able to read the pcap capture files
+umask 027
+
+while [ $# -gt 0 ]
+do
+	case "$1" in 
+		'-v')
+			verbose=1
+			;;
+
+		'start')
+			echo "$0: starting $PROGNAME on interface $INTERFACE ...\c"
+			if [ -f $EXECUTABLE ]; then
+
+				# If we find the daemon already running, exit.  Else fall through to the $STARTCOMMAND
+				if [ -f $PIDFILE ]; then
+					pid=`cat $PIDFILE`
+					if [ -n "$pid" ]; then
+						if kill -0 "$pid" > /dev/null 2>&1 ; then
+							# there is a process with that pid, but is it the right one?
+							/usr/bin/ps -f -p $pid | /usr/bin/tail -1 | /usr/bin/grep $PS_SEARCH > /dev/null 2>&1
+							if [ $? -eq 0 ] ; then
+								echo "$0: $PIDFILE=$pid processid exists with reasonable name, assuming daemon is already running"
+								exit
+							else
+								# that process is something else, so we can assume ours isn't already running
+								# Clearing our pidfile is just good housekeeping, not required
+								cp /dev/null $PIDFILE
+							fi
+						fi	# else no process running with that pid, so we assume it's not already running
+					fi	# else pidfile doesn't contain a number, so we assume it's not already running
+				fi	# else no pidfile, so we assume it's not already running
+				# Success!  It really looks like the daemon isn't already running, so start it
+
+				###
+				# This part is dhcp_probe - specific
+				#
+				# Each time it starts, it overwrites the capture file.
+				# So you might want to add code here to rotate the capture file ${CAPTUREDIR}/${CAPTUREFILENAME} here.
+				#
+				####
+
+				$STARTCOMMAND
+				echo "done"
+				exit
+
+			else
+				echo "$0: executable $EXECUTABLE does not exist, cannot start daemon"
+				exit 1
+			fi
+			;;
+
+		'stop')
+			echo "$0: stopping $PROGNAME...\c"
+			if [ -f $PIDFILE ] ; then
+				pid=`cat $PIDFILE`
+				if [ -n "$pid" ]; then
+					if kill -0 "$pid" > /dev/null 2>&1 ; then
+						# there is a process with that pid, but is it the right one?
+						/usr/bin/ps -f -p $pid | /usr/bin/tail -1 | /usr/bin/grep $PS_SEARCH > /dev/null 2>&1
+						if [ $? -eq 0 ] ; then
+							# Success! The process has reasonable name, go ahead and kill it
+							kill -TERM $pid
+							cp /dev/null $PIDFILE
+							echo "done"
+							exit
+						else
+							if [ -n "$verbose" ]; then
+								echo "$0: $PIDFILE=$pid processid is for different daemon, assuming ours is not running"
+							fi
+							# Clearing our pidfile is just good housekeeping, not required
+							cp /dev/null $PIDFILE
+							echo "done"
+							exit
+						fi
+					else
+						if [ -n "$verbose" ]; then
+							echo "$0: $PIDFILE=$pid processid does not exist, assuming is not running"
+						fi
+						# Clearing our pidfile is just good housekeeping, not required
+						cp /dev/null $PIDFILE
+						echo "done"
+						exit
+					fi
+				else 
+					if [ -n "$verbose" ]; then
+						echo "$0: pidfile $PIDFILE is empty, assuming is not running"
+					fi
+					echo "done"
+					exit
+				fi
+		else
+			if [ -n "$verbose" ]; then
+				echo "$0: pidfile $PIDFILE not found, assuming is not running"
+			fi
+		fi
+		echo "done"
+		;;
+
+		*)
+			echo "usage: $0 [-v] {start|stop}"
+			;;
+	esac
+	shift
+done

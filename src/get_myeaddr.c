@@ -1,6 +1,7 @@
 /* 
  * get_myeaddr.c: get my own ethernet address (for a specified IP address)
- * Based on prmac.c on page 442 of
+ *
+ * The code for the case where we use ioctl(SIOCGARP) is not defined is based on prmac.c on page 442 of
  * "UNIX Network Programming: Volume 1", Second Edition,
  * by W. Richard Stevens.
  */
@@ -11,10 +12,20 @@
 
 #include <strings.h>
 
+#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
+
+#ifdef HAVE_SYS_SOCKET_H
+/* On Solaris, you must include sys/types.h before sys/socket.h. */
 #include <sys/socket.h>
+#endif
+
 #include <sys/ioctl.h>
+
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h> /* struct in_addr */
+#endif
 
 #ifdef HAVE_NET_IF_ARP_H
 #include <net/if_arp.h>
@@ -30,18 +41,60 @@
 #include <stropts.h>
 #endif
 
+#ifdef HAVE_NET_IF_DL_H /* for sockaddr_dl{} and LLADDR */
+#include <net/if_dl.h>
+#endif
+
+#ifdef HAVE_IFADDRS_H
+#include <ifaddrs.h> /* for getifaddrs() */
+#endif
+
 #include "get_myeaddr.h"
+
 #include "report.h"
 
 
 int
 get_myeaddr(int sockfd, struct in_addr *my_ipaddr, struct ether_addr *my_eaddr, const char *ifname)
 {
-/* Given my IP address 'my_ipaddr', determine the corresponding Ethernet addr, store it in 'my_eaddr'.
-   Needs a dgram sockfd for temp use.
-   May optionally be passed the interface name, which is needed on some platforms, else NULL.
+/* If SIOCGIFHWADDR is defined, 
+     We use the SIOCGIFHWADDR ioctl to do our work as follows:
+     Given interface name 'ifname', determine the corresponding 
+     Ethernet addr, store it in 'my_eaddr'.
+     Ignores my_ipaddr.
+     Needs a dgram sockfd for temp use.
+   This is what you'll typically see on Solaris 9.
+
+   Else if SIOCGARP is defined:
+     We use the SIOCGARP ioctl to do our work as follows:
+     Given my IP address 'my_ipaddr', determine the corresponding Ethernet addr, store it in 'my_eaddr'.
+     Needs a dgram sockfd for temp use.
+     May optionally be passed the interface name, which is needed on some platforms, else NULL.
+   This is what you'll typically see on Linux.
+
+   Else if HAVE_GETIFADDRS is defined:
+     We use getifaddrs() to do our work as follows:
+     Given interface name 'ifname', determine the corresponding
+     Ethernet addr, store it in 'my_eaddr'.
+     Ignores my_ipaddr.
+   This is what you'll typically see on *BSD.
+
    Return 0 on success, <0 on failure.
 */
+
+#ifdef SIOCGIFHWADDR
+	struct ifreq ifr;
+
+	bzero(&ifr, sizeof(ifr));
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) < 0) {
+		report(LOG_ERR, "get_myeaddr: ioctl(SIOCGIFHWADDR): %s", get_errmsg());
+		return(-1);
+	}
+
+	bcopy(ifr.ifr_hwaddr.sa_data, my_eaddr, sizeof (struct ether_addr));
+
+#elif defined SIOCGARP /* not SIOCGIFHWADDR */
 
 	struct arpreq arpreq;
 	struct sockaddr_in *sin;
@@ -52,7 +105,7 @@ get_myeaddr(int sockfd, struct in_addr *my_ipaddr, struct ether_addr *my_eaddr, 
 	   out of it to where we would expect to find them. */
 	int fd;
 	struct strioctl iocb;
-#endif
+#endif /* SYS_SOCKET_IOCTLS_USE_STREAMS */
 
 
 	bzero(&arpreq, sizeof(arpreq));
@@ -71,7 +124,7 @@ get_myeaddr(int sockfd, struct in_addr *my_ipaddr, struct ether_addr *my_eaddr, 
 	if (ifname) {
 		strcpy(arpreq.arp_dev, ifname);
 	}
-#endif
+#endif /* STRUCT_ARPREQ_HAS_ARP_DEV */
 
 	/* retrieve arp cache entry */
 #ifdef SYS_SOCKET_IOCTLS_USE_STREAMS
@@ -91,7 +144,7 @@ get_myeaddr(int sockfd, struct in_addr *my_ipaddr, struct ether_addr *my_eaddr, 
 #endif /* SYS_SOCKET_IOCTLS_USE_STREAMS */
 
 	if (rc < 0) {
-		report(LOG_ERR, "ioctl(SIOCGARP): %s", get_errmsg());
+		report(LOG_ERR, "get_myeaddr: ioctl(SIOCGARP): %s", get_errmsg());
 		return(-1);
 	}
 
@@ -102,5 +155,52 @@ get_myeaddr(int sockfd, struct in_addr *my_ipaddr, struct ether_addr *my_eaddr, 
 	}
 
 	bcopy(arpreq.arp_ha.sa_data, my_eaddr, sizeof (struct ether_addr));
+
+#elif defined HAVE_GETIFADDRS /* not SIOCGARP */
+
+	struct ifaddrs *ifaddrs_head;
+	struct ifaddrs *ifp;
+	int found;
+	struct sockaddr_dl *sdl;
+
+	if (getifaddrs(&ifaddrs_head) < 0) {
+		report(LOG_ERR, "get_myeaddr: getifaddrs(): %s", get_errmsg());
+		return(-1);
+	}
+
+	/* walk the interfaces addresses until we find an interface with the right name, of type 'link' */
+	found = 0;
+	for (ifp = ifaddrs_head; ifp && !found ; ifp = ifp->ifa_next) {
+
+		/* We are only interested in interfaces with the name 'ifname' */
+		if ((strlen(ifname) == strlen(ifp->ifa_name)) && !strcmp(ifp->ifa_name, ifname)) {
+
+			/* we are only interested in interfaces of type 'link' */
+			if (ifp->ifa_addr && (ifp->ifa_addr->sa_family == AF_LINK)) {
+				found = 1;
+				/* copy the result to my_eaddr */
+				sdl = (struct sockaddr_dl *) ifp->ifa_addr;
+				bcopy((const void *)LLADDR(sdl), my_eaddr, sizeof (struct ether_addr));
+
+			}
+		}
+	}
+
+	if (ifaddrs_head)
+		freeifaddrs(ifaddrs_head);
+
+	if (!found) {
+		report(LOG_ERR, "get_myeaddr: getifaddrs() didn't find a link-layer interface with name %s", ifname);
+		return(-1);
+	}
+
+#else /* not HAVE_GETIFADDRS */
+
+#error "get_myeaddr: Unable to find a way to determine my ethernet address: SIOCGIFHWADDR, SIOCGARP, an HAVE_GETIFADDRS are all undefined"
+	
+#endif
+
+
+	/* the data is now in my_eaddr */
 	return(0); /* success */
 }

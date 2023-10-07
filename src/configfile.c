@@ -432,9 +432,8 @@ GetAlert_program_name(void)
 	alert_program_name_copy = strdup(alert_program_name);
 
 	if (!alert_program_name_copy) {
-		report(LOG_ERR, "GetAlert_program_name: strdup() failed (presumably a malloc error)-- exiting");
-		cleanup();
-		exit(1);
+		report(LOG_ERR, "GetAlert_program_name: strdup() failed (presumably a malloc error)");
+		my_exit(1, 1, 1);
 	}
 
     return alert_program_name_copy;

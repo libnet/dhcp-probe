@@ -89,9 +89,8 @@ report_init(int dont_fork, char *logfile_name)
 		if ((logfile = open_append(logfile_name)) == NULL) {
 			/* We can't use report() to report this error, and stderr may be closed.
 			   At least we can call syslog directly, so it hopefully this logged somewhere. */
-			syslog(LOG_ERR, "%s: report_init(): error opening logfile %s, exiting\n", prog, logfile_name);
-			cleanup();
-			exit(1);
+			syslog(LOG_ERR, "%s: report_init(): error opening logfile %s\n", prog, logfile_name);
+			my_exit(1, 1, 1);
 		}
 
 		/* restore */
@@ -120,16 +119,14 @@ close_and_reopen_log_file(char *logfile_name)
 		if (fclose(logfile) < 0) {
 			/* We can't use report() to report this error, and stderr may be closed.
 			   At least we can call syslog directly, so it hopefully this logged somewhere. */
-			syslog(LOG_ERR, "%s: close_and_reopen_log_file(): error closing logfile, exiting\n", prog);
-			cleanup();
-			exit(1);
+			syslog(LOG_ERR, "%s: close_and_reopen_log_file(): error closing logfile\n", prog);
+			my_exit(1, 1, 1);
 		}
 		if ((logfile = open_append(logfile_name)) == NULL) {
 			/* We can't use report() to report this error, and stderr may be closed.
 			   At least we can call syslog directly, so it hopefully this logged somewhere. */
-			syslog(LOG_ERR, "%s: close_and_reopen_log_file(): can't open logfile %s, exiting\n", prog, logfile_name);
-			cleanup();
-			exit(1);
+			syslog(LOG_ERR, "%s: close_and_reopen_log_file(): can't open logfile %s\n", prog, logfile_name);
+			my_exit(1, 1, 1);
 		}
 		/* log file should be line buffered to avoid lengthy delays in logging */
 		setvbuf(logfile, NULL, _IOLBF, 0);

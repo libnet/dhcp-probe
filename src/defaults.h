@@ -61,7 +61,7 @@
 /* override each of them from the commandline.                        */
 
 /* Absolute path to pidfile */ 
-#define PID_FILE "/etc/dhcp_probe.pid"
+#define PID_FILE "/var/run/dhcp_probe.pid"
 
 /* Absolute path to config file */
 #define CONFIG_FILE "/etc/dhcp_probe.cf"

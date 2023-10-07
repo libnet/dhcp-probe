@@ -41,9 +41,11 @@ extern enum dhcp_flavor_t packet_flavors[];
 
 /* forward decls for functions */
 void process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *packet);
+void set_pcap_timeout(pcap_t *pc);
 void reconfigure(const int write_packet_len);
 void catcher(int signal);
 void cleanup(void);
+void my_exit(int exit_status, int do_cleanup, int do_log);
 void usage(void);
 void close_and_reopen_capture_file(void);
 

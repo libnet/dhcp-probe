@@ -1,0 +1,236 @@
+Installing dhcp_probe
+
+
+Note that the file INSTALL contains generic build and 
+installation instructions; it supplements this file (specifically,
+the steps involving 'configure', 'make', and 'make install').
+
+The file PLATFORMS contains platform-specific notes.
+
+---
+
+1. Obtain and install libpcap, the packet capture library.
+It is available from http://www.tcpdump.org
+
+For information about which versions of libpcap the
+program has been successfully used with (and whether any
+versions should be avoided), see the PLATFORMS section below.
+
+If libpcap isn't supported on your platform, you can't
+use dhcp_probe.
+
+Libpcap must be installed to compile dhcp_probe;
+we assume we'll find the libpcap library and header files
+in either /usr/local or the other usual places the compiler
+and linker will search.  If you've installed it elsewhere,
+when you run 'configure' below, remember to specify the
+--with-pcap=DIR option.
+
+--
+
+2. Obtain and Install libnet, the packet writing library.
+It is available from http://www.packetfactory.net/libnet
+
+For information about which versions of libnet the
+program has been successfully used with (and whether any
+versions should be avoided), see the PLATFORMS section below.
+
+If libnet isn't supported on your platform, you can't
+use dhcp_probe.
+
+Libnet must be installed to compile this program;
+we assume we'll find the libnet library and header files
+in either /usr/local or the other usual places the compiler
+and linker will search.  If you've installed it elsewhere,
+when you run 'configure' below, remember to specify the
+--with-libnet=DIR option.  
+
+Additionally, you will likely need to modify libnet to add a function 
+that we need to use.  (This function is not present in libnet version 
+1.1.2.1; you will need to patch libnet.  If you are using a newer version 
+of libnet, you will need to examine libnet to see if the libnet_cq_end_loop()
+function is present.  If it not present, you will need patch libnet.)
+
+In the libnet source directory, edit ./src/libnet_cq.c to add the following 
+at the end:
+
+u_int32_t
+libnet_cq_end_loop()
+{
+
+    if (! clear_cq_lock(CQ_LOCK_WRITE)) 
+    { 
+    	return (0); 
+    } 
+    l_cqd.current = l_cq;
+    return (1); 
+}
+
+
+In the libnet source directory, edit ./include/libnet/libnet-functions.h 
+to add the following at the end:
+
+u_int32_t 
+libnet_cq_end_loop();
+
+You will need to rebuild and install libnet to incorporate these changes.
+
+---
+
+3. `cd' to the directory containing the package's source code and type
+`./configure' to configure the package for your system.
+
+You may need to specify the --with-pcap=DIR option if configure is unable to
+locate the libpcap header and library.  If the header and library don't share
+a common parent, the more specific options --with-pcap-include=DIR and
+--with-pcap-lib=DIR may be useful.
+
+You may need to specify the --with-libnet=DIR option if configure is unable to
+locate the libnet header and library.  If the header and library don't share
+a common parent, the more specific options --with-libnet-include=DIR and 
+--with-libnet-lib=DIR may be helpful.  For example, on some platforms,
+libnet 1.1.x is installed below /usr/include/libnet11/ and /usr/lib/libnet11/.
+
+Note that because the present version of the program runs on 
+Solaris 9 SPARC, built with gcc 3.3.6 (it has not been ported to other platforms),
+it ignores much of what 'configure' discovers about your platform.
+Earlier versions were built and ran successfully on Solaris 7, Solaris 8,
+and with gcc 2.95.2 and 2.95.3, 3.0.4, and 3.3.3.
+
+More information about running 'configure' is available in the INSTALL
+file, and you may type './configure --help' for a summary of options.
+
+Additional notes about some platforms may be in the PLATFORMS file.
+
+---
+
+4. Type `make' to compile the package.
+
+Ignore the following compiler warning:
+
+  bootp.c: In function `build_dhcp_payload':
+  bootp.c:80: warning: assignment from incompatible pointer type
+
+If you see an error about libnet_cq_end_loop() being unknown,
+see the earlier step about modifying libnet to add this function.
+
+---
+
+5. Type `make install' to install the package.
+
+---
+
+6. Create a configuration file dhcp_probe.cf in an appropriate location.
+
+The default location for this file is /etc/dhcp_probe.cf, but you can put it
+elsewhere, as long as you specify the new location when you run the program
+using the appropriate command-line option.  
+
+A sample configuration file is supplied in the 'extras' directory; you may wish 
+to use it as a template.
+
+7. Verify that the /etc/services file (or NIS 'services' map, whichever is
+in-use) contains entries for 'bootpc' and 'bootps'.   If they are not
+present, add them:
+
+bootps          67/udp                          # BOOTP/DHCP server
+bootpc          68/udp                          # BOOTP/DHCP client
+
+---
+
+8. To get started, try running it in the foreground and seeing if the debug messages 
+seem reasonable to you.  E.g. as root:
+
+   /usr/local/sbin/dhcp_probe -f -d 11 hme0
+
+The -f option prevents it from forking, and also causes all output to be
+sent to stderr instead of to syslog.  Debuglevel 11 will produce maximum
+debugging.  Specify the name of the interface on which to run, e.g. 'hme0'.
+
+---
+
+9. Arrange to have the program started automatically by root when your host starts.  
+Some sample startup scripts are in the extras directory.
+
+Never specify the -f flag when starting the daemon from a startup script;
+this flag should never be specified except for debugging purposes.    
+
+You'll probably want to reduce the debuglevel; a debuglevel of 0 or 1 is generally
+a good choice for production use.
+
+Output will be directed to syslog (using the facility specified
+in defaults.h); you'll want to configure syslogd to do something reasonable
+with it.  (You can change the syslog facility name by editing defaults.h and
+recompiling.)  Alternatively, use the -l option to specify a logfile to receive output;
+this prevents syslog from being used.
+
+---
+
+10. If you want to capture packets received from unknown servers, add the -o
+option when starting up, to specify a capture file.  Be sure to specify 
+a directory for the capture file that no one may write to except root;
+see the dhcp_probe(8) man page for details.
+
+Since the program truncates this file each time it starts, you may want to
+modify the script you use to start the program, to save the old version of
+this file before starting the program.
+
+---
+
+11. Any additional tools you may find useful can be found in the 'extras' directory.
+For example, dhcp_probe_notify is a sample notification script.  See the README
+in that directory.
+
+---
+
+
+PLATFORMS
+
+* Platforms known to work
+
+The current version of the program has been successfully built and used on the following platforms:
+
+        Solaris 9 on SPARC
+        gcc 3.3.6
+        libpcap 0.9.8
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
+
+Earlier versions of the program has been successfully built and used on the following platforms;
+it is  possible that the current version may also built and run on them:
+
+        Solaris 9 on SPARC
+        gcc 3.0.4
+        libpcap 0.8.3
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
+
+        Solaris 9 on SPARC
+        gcc 3.3.3
+        libpcap 0.8.3
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
+
+        Solaris 9 on SPARC
+        gcc 3.3.3
+        libpcap 0.9.3
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
+
+        Solaris 9 on SPARC
+        gcc 3.3.3
+        libpcap 0.9.4
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
+
+        Solaris 9 on SPARC
+        gcc 3.3.6
+        libpcap 0.9.5
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
+
+        Solaris 9 on SPARC
+        gcc 3.3.6
+        libpcap 0.9.7
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
+
+* libnet library
+
+The current version of the program uses the libnet 1.1.x API.  It does
+not support the libnet 1.0.x API.  The last version of this program that
+supported the libnet 1.0.x API was version 1.0.7.
+

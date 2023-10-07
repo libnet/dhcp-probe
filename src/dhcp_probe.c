@@ -7,7 +7,7 @@
 	only answer a selected set of clients will not be discovered.
 */
 
-/* Copyright (c) 2000-2004, The Trustees of Princeton University, All Rights Reserved. */
+/* Copyright (c) 2000-2008, The Trustees of Princeton University, All Rights Reserved. */
 
 
 #ifdef HAVE_CONFIG_H
@@ -28,7 +28,7 @@
 
 #ifndef lint
 static const char rcsid[] = "dhcp_probe version " VERSION;
-static const char copyright[] = "Copyright 2000-2004, The Trustees of Princeton University.  All rights reserved.";
+static const char copyright[] = "Copyright 2000-2008, The Trustees of Princeton University.  All rights reserved.";
 static const char contact[] = "networking at princeton dot edu";
 #endif
 
@@ -48,6 +48,7 @@ char *capture_file = NULL;
    Note than since pcap_open_live() declares this an 'int', don't specify a value larger than that.
 */
 int snaplen = CAPTURE_BUFSIZE;
+int socket_receive_timeout_feature = 0;
 
 char *prog = NULL;
 char *logfile_name = NULL;
@@ -107,7 +108,7 @@ main(int argc, char **argv)
 	else 
 		prog = argv[0];
 
-	while ((c = getopt(argc, argv, "c:d:fhl:o:p:Q:s:vw:")) != EOF) {
+	while ((c = getopt(argc, argv, "c:d:fhl:o:p:Q:s:Tvw:")) != EOF) {
 		switch (c) {
 			case 'c':
 				if (optarg[0] != '/') {
@@ -131,7 +132,7 @@ main(int argc, char **argv)
 				break;
 			case 'h':
 				usage();
-				exit(0);
+				my_exit(0, 0, 0);
 			case 'l':
 				if (optarg[0] != '/') {
 					fprintf(stderr, "%s: invalid log file '%s', must be an absolute pathname\n", prog, optarg);
@@ -179,9 +180,12 @@ main(int argc, char **argv)
 				}
 				break;
 			}
+			case 'T':
+				socket_receive_timeout_feature = 1;
+				break;
 			case 'v':
 				printf("DHCP Probe version %s\n", VERSION);
-				exit(0);
+				my_exit(0, 0, 0);
 			case 'w':
 				if (optarg[0] != '/') {
 					fprintf(stderr, "%s: invalid working directory '%s', must be an absolute pathname\n", prog, optarg);
@@ -192,7 +196,7 @@ main(int argc, char **argv)
 				break;
 			case '?':
 				usage();
-				exit(0);
+				my_exit(0, 0, 0);
 			default:
 				errflag++;
 				break;
@@ -200,7 +204,7 @@ main(int argc, char **argv)
 	}
 	if (optind == argc || errflag) {
 		usage();
-		exit(1);
+		my_exit(1, 0, 1);
 	}
 
 	if (! dont_fork)
@@ -211,7 +215,7 @@ main(int argc, char **argv)
 
 	if (chdir(cwd) < 0) {
 		report(LOG_ERR, "chdir(%s): %s", cwd, get_errmsg());
-		exit(1);
+		my_exit(1, 0, 1);
 	}
 
 	report(LOG_NOTICE, "starting, version %s", VERSION);
@@ -226,7 +230,7 @@ main(int argc, char **argv)
 		sa.sa_handler = SIG_IGN;
 		if (sigaction(SIGHUP, &sa, NULL) < 0) {
 			report(LOG_ERR, "sigaction: %s", get_errmsg());
-			exit(1);
+			my_exit(1, 0, 1);
 		}
 	} /* else we already set SIGHUP to ignore while daemonizing, so we don't need to do it again */
 	/* ignore SIGUSR1 */
@@ -234,30 +238,28 @@ main(int argc, char **argv)
 	sa.sa_handler = SIG_IGN;
 	if (sigaction(SIGUSR1, &sa, NULL) < 0) {
 		report(LOG_ERR, "sigaction: %s", get_errmsg());
-		exit(1);
+		my_exit(1, 0, 1);
 	}
 	/* ignore SIGUSR2 */
 	sigemptyset(&sa.sa_mask);
 	sa.sa_handler = SIG_IGN;
 	if (sigaction(SIGUSR2, &sa, NULL) < 0) {
 		report(LOG_ERR, "sigaction: %s", get_errmsg());
-		exit(1);
+		my_exit(1, 0, 1);
 	}
 
 
 	/* write pid file as soon as possible after (possibly) forking */
 	if ((pid_fp = open_for_writing(pid_file)) == NULL) {
 		report(LOG_ERR, "could not open pid file %s for writing", pid_file);
-		exit(1);
+		my_exit(1, 0, 1);
 	} else {
 		fprintf(pid_fp, "%d\n", (int) getpid());
 		fclose(pid_fp);
 	}
 
 	if (! read_configfile(config_file)) {
-		report(LOG_NOTICE, "exiting");
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 
 	reread_config_file = 0; /* set by signal handler */
@@ -269,15 +271,13 @@ main(int argc, char **argv)
 	/* general purpose dgram socket for various uses */
 	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		report(LOG_ERR, "socket(): %s", get_errmsg());
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 
 	/* lookup netnumber and netmask for specified interface */
 	if (pcap_lookupnet(ifname, &netnumber, &netmask, pcap_errbuf) < 0) {
 		report(LOG_ERR, "%s: bad interface '%s': %s", prog, ifname, pcap_errbuf);
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 
 	/* We need to know the Ethernet address for the named interface, but don't have a direct
@@ -288,16 +288,14 @@ main(int argc, char **argv)
 	/* lookup IP address for specified interface */
 	if (get_myipaddr(sockfd, ifname, &my_ipaddr) < 0) {
 		report(LOG_ERR, "couldn't determine IP addr for interface %s", ifname);
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 
 	/* lookup ethernet address for specified IP address */
 	/* note that my_eaddr must be init'd before calling GetChaddr() */
 	if (get_myeaddr(sockfd, &my_ipaddr, &my_eaddr, ifname) < 0) {
 		report(LOG_ERR, "couldn't determine my ethernet addr for my IP address %s", inet_ntoa(my_ipaddr));
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 
 	if (debug > 0) {
@@ -308,6 +306,8 @@ main(int argc, char **argv)
 			report(LOG_INFO, "using interface %s, no 802.1Q (IP address %s, hardware address %s)", 
 				ifname, inet_ntoa(my_ipaddr), ether_ntoa(&my_eaddr));
 		}
+		if (socket_receive_timeout_feature)
+			report(LOG_INFO, "socket receive timeout feature enabled");
 	}
 
 	/* We're ready to handle SIGINT, SIGTERM, SIGQUIT ourself */
@@ -316,24 +316,21 @@ main(int argc, char **argv)
 	sa.sa_flags = 0;
 	if (sigaction(SIGINT, &sa, NULL) < 0) {
 		report(LOG_ERR, "sigaction: %s", get_errmsg());
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 	sigemptyset(&sa.sa_mask);
 	sa.sa_handler = catcher;
 	sa.sa_flags = 0;
 	if (sigaction(SIGTERM, &sa, NULL) < 0) {
 		report(LOG_ERR, "sigaction: %s", get_errmsg());
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 	sigemptyset(&sa.sa_mask);
 	sa.sa_handler = catcher;
 	sa.sa_flags = 0;
 	if (sigaction(SIGQUIT, &sa, NULL) < 0) {
 		report(LOG_ERR, "sigaction: %s", get_errmsg());
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 
 
@@ -344,8 +341,7 @@ main(int argc, char **argv)
 	sa.sa_flags = 0;
 	if (sigaction(SIGHUP, &sa, NULL) < 0) {
 		report(LOG_ERR, "sigaction: %s", get_errmsg());
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 
 	/* install SIGUSR1 handler to close/re-open logfile (if logfile being used) */
@@ -354,8 +350,7 @@ main(int argc, char **argv)
 	sa.sa_flags = 0;
 	if (sigaction(SIGUSR1, &sa, NULL) < 0) {
 		report(LOG_ERR, "sigaction: %s", get_errmsg());
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 
 	/* install SIGUSR2 handler to close/re-open capture file (if capture file being used) */
@@ -364,8 +359,7 @@ main(int argc, char **argv)
 	sa.sa_flags = 0;
 	if (sigaction(SIGUSR2, &sa, NULL) < 0) {
 		report(LOG_ERR, "sigaction: %s", get_errmsg());
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 
 	/* install SIGCHLD handler to reap children (e.g. when alert_program_name is specified */
@@ -374,8 +368,7 @@ main(int argc, char **argv)
 	sa.sa_flags = 0;
 	if (sigaction(SIGCHLD, &sa, NULL) < 0) {
 		report(LOG_ERR, "sigaction: %s", get_errmsg());
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 
 	/* each packet we may write is the same length */
@@ -388,8 +381,7 @@ main(int argc, char **argv)
 
 	/* init all the frames we may write */
 	if (! init_libnet_context_queue()) {
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 
 	if (capture_file) { /* we are saving unexpected responses to a capture file */
@@ -410,8 +402,7 @@ main(int argc, char **argv)
 		pcap_errbuf[0] = '\0'; /* so we can tell if a warning was produced on success */
 		if ((pd_template = pcap_open_live(ifname, snaplen, 0, 1, pcap_errbuf)) == NULL) {
 			report(LOG_ERR, "pcap_open_live %s: %s", ifname, pcap_errbuf2);
-			cleanup();
-			exit(1);
+			my_exit(1, 1, 1);
 		}
 		if (pcap_errbuf[0] != '\0')
 			/* even on success, a warning may be produced */
@@ -425,8 +416,7 @@ main(int argc, char **argv)
 		*/
 		if ((pcap_dump_d = pcap_dump_open(pd_template, capture_file)) == NULL) {
 			report(LOG_ERR, "pcap_dump_open: %s", pcap_geterr(pd_template));
-			cleanup();
-			exit(1);
+			my_exit(1, 1, 1);
 		}
 	}
 
@@ -517,8 +507,7 @@ main(int argc, char **argv)
 				} else { /* failure */
 					if (pcap_open_retries == 0) {
 						report(LOG_DEBUG, "pcap_open_live(%s): %s; retry count (%d) exceeded, giving up", ifname, pcap_errbuf, PCAP_OPEN_LIVE_RETRY_MAX);
-						cleanup();
-						exit(1);
+						my_exit(1, 1, 1);
 					} else {
 						if (debug > 1)
 							report(LOG_DEBUG, "pcap_open_live(%s): %s; will retry", ifname, pcap_errbuf);
@@ -534,22 +523,20 @@ main(int argc, char **argv)
 			linktype = pcap_datalink(pd);
 			if (linktype != DLT_EN10MB) {
 				report(LOG_ERR, "interface %s link layer type %d not ethernet", ifname, linktype);
-				cleanup();
-				exit(1);
+				my_exit(1, 1, 1);
 			}
 			/* compile bpf filter to select just udp/ip traffic to udp port bootpc  */
 			if (pcap_compile(pd, &bpf_code, "udp dst port bootpc", 1, netmask) < 0) {
 				report(LOG_ERR, "pcap_compile: %s", pcap_geterr(pd));
-				cleanup();
-				exit(1);
+				my_exit(1, 1, 1);
 			}
 			/* install compiled filter */
 			if (pcap_setfilter(pd, &bpf_code) < 0) {
 				report(LOG_ERR, "pcap_setfilter: %s", pcap_geterr(pd));
-				cleanup();
-				exit(1);
+				my_exit(1, 1, 1);
 			}
-
+			if (socket_receive_timeout_feature)
+				set_pcap_timeout(pd);
 
 			/* write one packet */
 
@@ -643,8 +630,7 @@ main(int argc, char **argv)
 		/* Cleanup from iterating through the context queue. */
 		if (!libnet_cq_end_loop()) {
 			report(LOG_ERR, "libnet_cq_end_loop() failed");
-			cleanup();
-			exit(1);
+			my_exit(1, 1, 1);
 		}
 
 		if (debug > 10)
@@ -701,10 +687,7 @@ main(int argc, char **argv)
 	if (pd_template) /* only used if a capture file requested */
 		pcap_close(pd_template); 
 
-	report(LOG_NOTICE, "exiting");
-
-	cleanup();
-	exit(0);
+	my_exit(0, 1, 1);
 }
 
 
@@ -896,6 +879,32 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 }
 
 
+void 
+set_pcap_timeout(pcap_t *pd)
+{
+/*
+	Set a receive timeout on the socket underlying the pcap descriptor.
+
+	Ideally, this would not be necessary, as we already passed a timeout to pcap_open_live().
+	But as the pcap(3) man page explains, that timeout is not supported on some platforms.
+	In those cases, applying a timeout directly to the underlying socket might help.
+*/
+
+	struct timeval timeout;
+	int time_wait;
+
+	time_wait = GetResponse_wait_time();
+	timeout.tv_sec  = time_wait / 1000;
+	timeout.tv_usec = (time_wait % 1000) * 1000;
+	if(setsockopt(pcap_fileno(pd), SOL_SOCKET, SO_RCVTIMEO,
+			&timeout, sizeof(timeout)) < 0) {
+		report(LOG_ERR, "set_pcap_timeout(): unable to set receive timeout: %s", get_errmsg());
+		my_exit(1, 1, 1);
+	}
+
+}
+
+
 void
 reconfigure(const int write_packet_len)
 {
@@ -906,16 +915,13 @@ reconfigure(const int write_packet_len)
 	int i;
 
 	if (! read_configfile(config_file)) {
-		report(LOG_NOTICE, "exiting");
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 
 	/* Contents of the packets we send may need to change as a result of change
 	   to the configuration.  Free the packets we've already constructed, and build new ones. */
 	if (! init_libnet_context_queue()) {
-		cleanup();
-		exit(1);
+		my_exit(1, 1, 1);
 	}
 
 	return;
@@ -951,8 +957,7 @@ close_and_reopen_capture_file(void)
 		*/
 		if ((pcap_dump_d = pcap_dump_open(pd_template, capture_file)) == NULL) {
 			report(LOG_ERR, "close_and_reopen_capture_file: pcap_dump_open: %s", pcap_geterr(pd_template));
-			cleanup();
-			exit(1);
+			my_exit(1, 1, 1);
 		}
 
 		if (debug > 1)
@@ -1022,13 +1027,27 @@ cleanup(void)
 	return;
 }
 
+void
+my_exit(int exit_status, int do_cleanup, int do_log)
+{
+	/* A wrapper for exit().  */
+
+	if (do_log)
+		report(LOG_NOTICE, "exiting");
+
+	if (do_cleanup)
+		cleanup();
+
+	exit(exit_status);
+}
+
 
 void
 usage(void)
 {
 /*	Print usage message and return. */
 
-	fprintf(stderr, "Usage: %s [-c config_file] [-d debuglevel] [-f] [-h] [-l log_file] [-o capture_file] [-p pid_file] [-Q vlan_id] [-s capture_bufsize] [-v] [-w cwd] interface_name\n", prog);
+	fprintf(stderr, "Usage: %s [-c config_file] [-d debuglevel] [-f] [-h] [-l log_file] [-o capture_file] [-p pid_file] [-Q vlan_id] [-s capture_bufsize] [-T] [-v] [-w cwd] interface_name\n", prog);
 	fprintf(stderr, "   -c config_file                 override default config file [%s]\n", CONFIG_FILE);
 	fprintf(stderr, "   -d debuglevel                  enable debugging at specified level\n");
 	fprintf(stderr, "   -f                             don't fork (only use for debugging)\n");
@@ -1038,6 +1057,7 @@ usage(void)
 	fprintf(stderr, "   -p pid_file                    override default pid file [%s]\n", PID_FILE);
 	fprintf(stderr, "   -Q vlan_id                     tag outgoing frames with an 802.1Q VLAN ID\n");
 	fprintf(stderr, "   -s capture_bufsize             override default capture bufsize [%d]\n", CAPTURE_BUFSIZE);
+	fprintf(stderr, "   -T                             enable the socket receive timeout feature\n");
 	fprintf(stderr, "   -v                             display version number then exit\n");
 	fprintf(stderr, "   -w cwd                         override default working directory [%s]\n", CWD);
 	fprintf(stderr, "   interface_name                 name of ethernet interface\n");

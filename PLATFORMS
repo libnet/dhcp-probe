@@ -1,0 +1,14 @@
+Platform-Specific Notes for dhcp_probe
+
+
+FREEBSD
+
+If the libnet 1.1.x header is installed in /usr/local/include/libnet11/
+you will probably need to specify --with-libnet-include=/usr/local/include/libnet11/
+
+If the libnet 1.1.x library is installed in /usr/local/lib/libnet11/
+you will probably need to specify --with-libnet-lib=/usr/local/lib/libnet11/
+
+You may need to specify --mandir=/usr/local/man at configure-time.
+
+

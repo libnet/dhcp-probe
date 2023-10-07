@@ -1,4 +1,4 @@
-/* Copyright (c) 2000-2004, The Trustees of Princeton University, All Rights Reserved. */
+/* Copyright (c) 2000-2008, The Trustees of Princeton University, All Rights Reserved. */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -251,7 +251,13 @@ build_frame(libnet_t *l, struct bootp *udp_payload)
 		/* build the Ethernet 802.1Q header */
 		if (libnet_build_802_1q(
 			ether_bcast_eaddr,										/* ether_dst */
+#ifdef STRUCT_ETHER_ADDR_HAS_ETHER_ADDR_OCTET
 			GetEther_src()->ether_addr_octet,						/* ether_src */
+#elif defined STRUCT_ETHER_ADDR_HAS_OCTET
+			GetEther_src()->octet,									/* ether_src */
+#else
+#error "struct ether_addr{} has neither an ether_addr_octet nor an octet member, cannot proceed."
+#endif
 			ETHERTYPE_VLAN,											/* TPI */
 			VLAN_PRIORITY,											/* priority (0-7) */
 			VLAN_CFI_FLAG,											/* CFI flag */
@@ -269,7 +275,13 @@ build_frame(libnet_t *l, struct bootp *udp_payload)
 		/* build the Ethernet header */
 		if (libnet_build_ethernet(
 			ether_bcast_eaddr,										/* ether_dst */
+#ifdef STRUCT_ETHER_ADDR_HAS_ETHER_ADDR_OCTET
 			GetEther_src()->ether_addr_octet,						/* ether_src */
+#elif defined STRUCT_ETHER_ADDR_HAS_OCTET
+			GetEther_src()->octet,									/* ether_src */
+#else
+#error "struct ether_addr{} has neither an ether_addr_octet nor an octet member, cannot proceed."
+#endif
 			ETHERTYPE_IP,											/* ethertype */
 			NULL, 0,												/* no optional payload */
 			l,														/* libnet context */

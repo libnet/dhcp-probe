@@ -17,6 +17,11 @@
 #
 # You will need to edit the definitions below.
 #
+#
+# XXX Sometimes our calls to THROTTLE_MAIL_CMD or THROTTLE_PAGE_CMD command fail.
+# I've made the possible failures (open() and close() calls) more verbose when they fail,
+# to attempt to provide more info, but I still don't know what causes the failures.
+#
 # Irwin Tillman
 
 
@@ -47,7 +52,7 @@ $THROTTLE_MAIL_SUBJECT = "unexpected BootP/DHCP server";
 use vars qw($THROTTLE_PAGE_CMD $THROTTLE_PAGE_TIMEOUT $THROTTLE_PAGE_RECIPIENT);
 $THROTTLE_PAGE_CMD = "/usr/local/etc/mail-throttled"; # set to "" to disable
 $THROTTLE_PAGE_TIMEOUT = 600; # seconds
-$THROTTLE_PAGE_RECIPIENT = "root someoneelse\@example.com";
+$THROTTLE_PAGE_RECIPIENT = "rootpager someones-pager\@example.org";
 
 
 # You shouldn't need to edit anything below
@@ -72,8 +77,11 @@ if ($THROTTLE_MAIL_CMD) {
 	# This command suppresses the message if it's sent a message to 'key' within 'throttle_seconds'
 	# I use the calling program's name and the offender's hardware address as the key.
 
-	open(THROTTLE_MAIL, "| $THROTTLE_MAIL_CMD -k ${calling_program}_mail_$ether_src -t $THROTTLE_MAIL_TIMEOUT -f \"$THROTTLE_MAIL_FROM\" -r \"$THROTTLE_MAIL_RECIPIENT\" -s\"$THROTTLE_MAIL_SUBJECT (MAC=${ether_src}, IP=${ip_src})\"")
-		or my_message('LOG_ERR', "${prog}: can't execute '${THROTTLE_MAIL_CMD}': $!"), exit 1;
+	unless (open(THROTTLE_MAIL, "| $THROTTLE_MAIL_CMD -k ${calling_program}_mail_$ether_src -t $THROTTLE_MAIL_TIMEOUT -f \"$THROTTLE_MAIL_FROM\" -r \"$THROTTLE_MAIL_RECIPIENT\" -s\"$THROTTLE_MAIL_SUBJECT (MAC=${ether_src}, IP=${ip_src})\"")) {
+
+		my_message('LOG_ERR', "${prog}: failure trying to send throttled email: can't execute '${THROTTLE_MAIL_CMD}': open(): $!");
+		exit 20;
+	}
 
 	print THROTTLE_MAIL
 			$timestamp, "\n",
@@ -82,7 +90,19 @@ if ($THROTTLE_MAIL_CMD) {
 			"$hostname interface=${ifname}, IP source=${ip_src}, Ethernet source=${ether_src}\n";
 	print THROTTLE_MAIL "\nThis means there *is* a rogue BootP/DHCP server operating.\n" if $VERBOSE;
 
-	close(THROTTLE_MAIL) or my_message('LOG_ERR', "${prog}: can't execute '${THROTTLE_MAIL_CMD}': $!"), exit 1;
+	unless (close(THROTTLE_MAIL)) {
+		my_message('LOG_ERR', 
+					"${prog}: failure trying to send throttled email: error executing '${THROTTLE_MAIL_CMD}': close(): " .
+						($! ? 
+							"syserr closing pipe: $!"
+							:
+							"wait status $? from pipe"
+						) .
+					"\n"
+				);
+		exit 21;
+		
+	}
 }
 
 
@@ -92,13 +112,27 @@ if ($THROTTLE_PAGE_CMD) {
 	# This command suppresses the message if it's sent a message to 'key' within 'throttle_seconds'
 	# I use the calling program's name and the offender's hardware address as the key.
 
-	open(THROTTLE_PAGE, "| $THROTTLE_PAGE_CMD -k ${calling_program}_page_$ether_src -t $THROTTLE_PAGE_TIMEOUT -r \"$THROTTLE_PAGE_RECIPIENT\"")
-		or die "${prog}: can't execute '${THROTTLE_PAGE_CMD}': $!\n";
+	unless (open(THROTTLE_PAGE, "| $THROTTLE_PAGE_CMD -k ${calling_program}_page_$ether_src -t $THROTTLE_PAGE_TIMEOUT -r \"$THROTTLE_PAGE_RECIPIENT\"")) {
+		my_message('LOG_ERR', "${prog}: failure trying to send throttled page: can't execute '${THROTTLE_PAGE_CMD}': open(): $!\n");
+		exit 30;
+	}
 
 	print THROTTLE_PAGE "rogue DHCP server IP=$ip_src MAC=$ether_src seen via $hostname interface $ifname\n";
 	print THROTTLE_PAGE "This means there *is* a rogue BootP/DHCP server operating.\n" if $VERBOSE;
 
-	close(THROTTLE_PAGE) or die "${prog}: can't execute '${THROTTLE_PAGE_CMD}': $!\n";
+	unless (close(THROTTLE_PAGE)) {
+		my_message('LOG_ERR', 
+					"${prog}: failure trying to send throttled page: error executing '${THROTTLE_PAGE_CMD}': close(): " .
+						($! ? 
+							"syserr closing pipe: $!"
+							:
+							"wait status $? from pipe"
+						) .
+					"\n"
+				);
+		exit 31;
+	}
+		
 }
 
 exit 0;

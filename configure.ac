@@ -4,7 +4,7 @@ AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_MACRO_DIR(m4)
 
-AM_INIT_AUTOMAKE(dhcp_probe, 1.2.1)
+AM_INIT_AUTOMAKE(dhcp_probe, 1.2.2)
 
 dnl Determine hosttype.
 AC_CANONICAL_HOST
@@ -77,11 +77,15 @@ AC_CHECK_HEADERS([netinet/udp.h], [], [],
 #endif
 ])
 
-AC_CHECK_HEADERS(sys/file.h sys/filio.h sys/ioctl.h sys/select.h) 
+AC_CHECK_HEADERS(sys/file.h sys/filio.h sys/ioctl.h sys/resource.h sys/select.h) 
 AC_CHECK_HEADERS(sys/sockio.h sys/stat.h sys/time.h sys/types.h sys/uio.h)
 AC_CHECK_HEADERS(sys/un.h sys/wait.h)
 dnl netinet/ether.h is supplied by GNU C Library
 AC_CHECK_HEADERS(netinet/ether.h)
+
+AC_CHECK_HEADERS(net/if_dl.h)
+dnl ifaddrs.h is supplied by many *BSDs
+AC_CHECK_HEADERS(ifaddrs.h)
 
 dnl ##########################################################################
 
@@ -127,6 +131,58 @@ AH_TEMPLATE([STRUCT_ARPREQ_HAS_ARP_DEV], [Define if struct arpreq{} has an arp_d
 AC_CHECK_STRUCT_FOR(
 [#include <net/if_arp.h>],
 arpreq,arp_dev,[])
+
+dnl We use the AC_CHECK_MEMBER macro here, to determine if
+dnl struct ether_addr{} has an ether_addr_octet member.
+dnl In Solaris 9 and 10, we include netinet/if_ether.h get get the declaration of struct ether_addr.
+AC_CHECK_MEMBER(
+[struct ether_addr.ether_addr_octet], 
+[ AC_DEFINE([STRUCT_ETHER_ADDR_HAS_ETHER_ADDR_OCTET], [1], [Define if struct ether_addr{} has an ether_addr_octet member]) ], 
+[], 
+[
+#if HAVE_NETINET_IF_ETHER_H
+  /* In Solaris, before using netinet/if_ether.h you need sys/socket.h and net/if.h. */
+#if HAVE_SYS_TYPES_H
+   /* On Solaris, you must include sys/types.h before sys/socket.h. */
+#   include <sys/types.h>
+#endif
+#if HAVE_SYS_SOCKET_H
+# include <sys/socket.h>
+#endif
+#if HAVE_NET_IF_H
+# include <net/if.h>
+#endif
+#include <netinet/if_ether.h>
+#endif
+]
+)
+
+dnl We use the AC_CHECK_MEMBER macro here, to determine if
+dnl struct ether_addr{} has an octet member.
+dnl In Linux and FreeBSD, we include netinet/if_ether.h get get the declaration of struct ether_addr.
+AC_CHECK_MEMBER(
+[struct ether_addr.octet], 
+[ AC_DEFINE([STRUCT_ETHER_ADDR_HAS_OCTET], [1], [Define if struct ether_addr{} has an octet member]) ],
+[],
+[
+#if HAVE_NETINET_IF_ETHER_H
+  /* In Solaris, before using netinet/if_ether.h you need sys/socket.h and net/if.h. */
+#if HAVE_SYS_TYPES_H
+   /* On Solaris, you must include sys/types.h before sys/socket.h. */
+#   include <sys/types.h>
+#endif
+#if HAVE_SYS_SOCKET_H
+# include <sys/socket.h>
+#endif
+#if HAVE_NET_IF_H
+# include <net/if.h>
+#endif
+#include <netinet/if_ether.h>
+#endif
+]
+)
+
+
 
 dnl We use these macros to determine if sys_nerr exists and is declared, 
 dnl and to determine if sys_errlist exists and is declared.
@@ -191,6 +247,8 @@ dnl Checks for library functions.
 
 AC_CHECK_FUNCS(bcmp bcopy bzero) 
 AC_CHECK_FUNCS(vsnprintf) 
+AC_CHECK_FUNCS(sysconf getrlimit)
+AC_CHECK_FUNCS(getifaddrs)
 
 dnl ##################################################################
 
@@ -198,6 +256,11 @@ dnl Check for oft-missing library functions for which we provide a fallback impl
 
 AC_REPLACE_FUNCS(strerror)
 AC_REPLACE_FUNCS(inet_aton)
+
+dnl Include a library functions that we expect to be missing, to ensure that when our
+dnl library of replacement functions is built, it contains at least one member.
+dnl (Empty libraries are not portable.)
+AC_REPLACE_FUNCS(my_null_proc)
 
 dnl ##################################################################
 

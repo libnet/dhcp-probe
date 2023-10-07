@@ -15,6 +15,7 @@
 
 #include "daemonize.h"
 #include "report.h"
+#include "open_max.h"
 
 
 void
@@ -26,6 +27,7 @@ daemonize(void)
 
 	if ((pid = fork()) < 0) {
 		report(LOG_ERR, "fork: %s", get_errmsg());
+		report(LOG_NOTICE, "exiting");
 		exit(1);
 	} else if (pid != 0)
 		exit(0); /* parent terminates */
@@ -39,11 +41,13 @@ daemonize(void)
 	sa.sa_handler = SIG_IGN;
 	if (sigaction(SIGHUP, &sa, NULL) < 0) {
 		report(LOG_ERR, "sigaction: %s", get_errmsg());
+		report(LOG_NOTICE, "exiting");
 		exit(1);
 	}
 
 	if ((pid = fork()) < 0) {
 		report(LOG_ERR, "fork: %s", get_errmsg());
+		report(LOG_NOTICE, "exiting");
 		exit(1);
 	} else if (pid != 0)
 		exit(0); /* first child terminates */
@@ -59,11 +63,10 @@ daemonize(void)
 	*/
 
 	/* Close inherited descriptors.
-	   There is no portable way to determine what descriptors were inherited.  
-	   There is also no portable way to determine the maximum number of file descriptors; presently
-	   we'll rely on the non-portable OPEN_MAX constant.
+	   There is no portable way to determine what descriptors were inherited.
+	   so we'll instead try to close all descriptors up to some maximum value.
 	*/
-	for (i = 0; i < OPEN_MAX; i++)
+	for (i = 0; i < open_max(); i++)
 		close(i);
 
 	return;

@@ -29,6 +29,9 @@
 #include "report.h"
 #include "utils.h"
 
+#ifndef max
+#define max(a,b) ((a) > (b) ? (a) : (b))
+#endif
 
 int
 get_myipaddr(int sockfd, char *ifname, struct in_addr *my_ipaddr)
@@ -78,7 +81,8 @@ get_myipaddr(int sockfd, char *ifname, struct in_addr *my_ipaddr)
 			   any other error return is presumably serious.  Something's also wrong if we get an
 			   error return *after* a previous succesful call (which last lastlen>0). */
 			if (errno != EINVAL || lastlen != 0) {
-				report(LOG_ERR, "ioctl(SIOCGIFCONF): %s", get_errmsg());
+				report(LOG_ERR, "get_myipaddr: ioctl(SIOCGIFCONF): %s", get_errmsg());
+				report(LOG_NOTICE, "exiting");
 				exit(1);
 			} /* else we know buffer was too small, so we'll just try again with larger buffer */
 		} else { 
@@ -101,8 +105,17 @@ get_myipaddr(int sockfd, char *ifname, struct in_addr *my_ipaddr)
 #ifdef STRUCT_SOCKADDR_HAS_SA_LEN
 		len = max(sizeof(struct sockaddr), ifr->ifr_addr.sa_len);
 #else
-		len = sizeof(struct sockaddr);	/* we're assuming IPv4 */
-#endif
+		switch (ifr->ifr_addr.sa_family) {
+#ifdef AF_INET6
+			case AF_INET6:
+				len = sizeof(struct sockaddr_in6);
+				break;
+#endif /* AF_INET6 */
+			case AF_INET:
+			default:
+			len = sizeof(struct sockaddr);
+		}
+#endif /* not STRUCT_SOCKADDR_HAS_SA_LEN */
 
 		/* increment ptr to next interface for next time through the loop */
 		ptr += sizeof(ifr->ifr_name) + len;
@@ -124,7 +137,7 @@ get_myipaddr(int sockfd, char *ifname, struct in_addr *my_ipaddr)
 		rc = ioctl(sockfd, SIOCGIFADDR,  (void *) ifr);
 #endif /* not SYS_SOCKET_IOCTLS_USE_STREAMS */
 		if (rc < 0) {
-			report(LOG_ERR, "ioctl(SIOCGIFADDR): %s", get_errmsg());
+			report(LOG_ERR, "get_myipaddr: ioctl(SIOCGIFADDR): %s", get_errmsg());
 			return(-1);
 		}
 
@@ -138,7 +151,7 @@ get_myipaddr(int sockfd, char *ifname, struct in_addr *my_ipaddr)
 	}
 
 	/* only reached when we failed to locate 'ifname' in list of interfaces */
-
+	report(LOG_ERR, "get_myipaddr: couldn't locate interface %s", ifname);
 	free(buf);	 /* we're done with ifconf */
 	return(-1); /* failure */
 }

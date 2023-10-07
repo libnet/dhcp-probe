@@ -102,6 +102,11 @@
 
 #include <netinet/in_systm.h> /* for n_long def used by netinet/ip.h */
 
+/* In Linux, use the BSD flavor IP structure headers instead of the Linux flavor headers. */
+#ifndef __FAVOR_BSD
+#define __FAVOR_BSD 1
+#endif
+
 #ifdef HAVE_NETINET_IP_H
 #include <netinet/ip.h>
 #endif
@@ -121,6 +126,10 @@
 # include   <netinet/in.h>
 extern int inet_aton(const char *, struct in_addr *);
 #endif /* not HAVE_INET_ATON_PROTO */
+
+#ifdef HAVE_SYS_RESOURCE_H
+#include <sys/resource.h>
+#endif
 
 #include <pcap.h> /* libpcap */
 

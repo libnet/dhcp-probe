@@ -1,6 +1,6 @@
 .\" Copyright (c) 2000-2008, The Trustees of Princeton University.  All rights reserved.
 .\"
-.TH DHCP_PROBE 8 "Feb 8 2008" "Princeton Univ."
+.TH DHCP_PROBE 8 "Oct 3 2008" "Princeton Univ."
 .SH NAME
 dhcp_probe \- locate DCHP and BootP servers on a directly-attached network
 .SH SYNOPSIS
@@ -38,6 +38,9 @@ dhcp_probe
 [
 .B \-s
 .I capture_bufsize
+]
+[
+.B \-T
 ]
 [
 .B \-v
@@ -199,7 +202,7 @@ that understands the pcap savefile format; e.g.
 .BI \-p \ pid_file
 Specifies the file that will contain the program's processid.
 If not specified, this defaults to
-.BR /etc/dhcp_probe.pid .
+.BR /var/run/dhcp_probe.pid .
 The
 .I pid_file
 is written shortly after the program starts, and is removed
@@ -224,6 +227,26 @@ If not specified, this defaults to 30280, which is enough
 for twenty maximum-size Ethernet frames (1514*20).
 Typical responses are Ethernet frames ranging from 342-590 bytes, so the
 default capture buffer size should hold over 50 of them.
+.TP
+.B \-T
+Enables the 'socket receive timeout' feature.
+On some platforms, dhcp_probe may ignore the 
+.I response_wait_time
+(described in 
+.BR dhcp_probe.cf (5)), instead waiting forever for a response
+after it sends a probe packet.
+As per
+.BR pcap (3),
+this is because the read timeout we pass to pcap_open_live()
+is not supported on all platforms.
+If you encounter this issue, try enabling our 'socket receive timeout' feature;
+it might help.
+Enabling this feature causes the program to also set a socket receive 
+timeout on the socket underlying the pcap capture; we set this timeout to the 
+.IR response_wait_time .
+On some platforms, the program's socket receive timeout feature does not work;
+instead the program will report that it cannot set the receive timeout,
+and will exit.
 .TP
 .B \-v
 Display the program's version number, then exit.

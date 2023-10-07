@@ -106,9 +106,8 @@ smalloc(size_t size, int init)
 
 	rc = malloc(size);
 	if (!rc) {
-		report(LOG_ERR, "malloc() failed -- exiting");
-		cleanup();
-		exit(1);
+		report(LOG_ERR, "malloc() failed");
+		my_exit(1, 1, 1);
 	}
 
 	if (init)

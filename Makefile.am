@@ -2,7 +2,7 @@
 
 SUBDIRS = lib src doc
 
-EXTRA_DIST = COPYING.GPL COPYING.LIB INSTALL.dhcp_probe \
+EXTRA_DIST = COPYING.GPL COPYING.LIB INSTALL.dhcp_probe PLATFORMS \
 	config/config.guess \
 	config/config.sub \
 	config/install-sh \
@@ -18,6 +18,8 @@ EXTRA_DIST = COPYING.GPL COPYING.LIB INSTALL.dhcp_probe \
 	m4/sys_errlist.m4 \
 	extras/dhcp_probe.cf.sample \
 	extras/dhcp_probe_notify \
+	extras/dhcp_probe.sh \
+	extras/dhcp_probe.startup \
 	extras/mail-throttled \
 	extras/README
 
