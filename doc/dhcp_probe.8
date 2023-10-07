@@ -1,6 +1,6 @@
-.\" Copyright (c) 2000-2004, The Trustees of Princeton University.  All rights reserved.
+.\" Copyright (c) 2000-2007, The Trustees of Princeton University.  All rights reserved.
 .\"
-.TH DHCP_PROBE 8 "November 2 2004" "Princeton Univ."
+.TH DHCP_PROBE 8 "March 14 2007" "Princeton Univ."
 .SH NAME
 dhcp_probe \- locate DCHP and BootP servers on a directly-attached network
 .SH SYNOPSIS
@@ -30,6 +30,10 @@ dhcp_probe
 [
 .B \-p
 .I pid_file
+]
+[
+.B \-Q
+.I vlan_id
 ]
 [
 .B \-s
@@ -122,7 +126,7 @@ Information Technology,
 and is available from
 http://www.net.princeton.edu/software/dhcp_probe/
 .PP
-Presently the product builds and runs on Solaris 8 on SPARC with gcc.
+Presently the product builds and runs on Solaris 9 on SPARC with gcc.
 The program relies on the
 .BR pcap (3)
 and
@@ -197,6 +201,13 @@ The
 .I pid_file
 is written shortly after the program starts, and is removed
 when the program exits under its own control.
+.TP
+.BI \-Q \ vlan_id
+Specifies that the packets we send should be tagged with
+an 802.1Q VLAN ID vlan_id.
+Valid values range from 0 to 4095.
+If not specified, the packets we send do not contain
+an 802.1Q header.
 .TP
 .BI \-s \ capture_bufsize
 Specifies the size of the buffer that will be used to
@@ -723,7 +734,7 @@ when we begin and end listening for response packets.
 .SH AUTHOR
 The program was written by Irwin Tillman
 of Princeton University's OIT Network Systems Group.
-It was written to run on Solaris 7,
+It was written to run on Solaris, 
 relying on the generally-available
 .BR pcap (3)
 and

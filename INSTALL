@@ -1,221 +1,234 @@
-Installing dhcp_probe
+Installation Instructions
+*************************
 
+Copyright (C) 1994, 1995, 1996, 1999, 2000, 2001, 2002, 2004, 2005,
+2006 Free Software Foundation, Inc.
 
-Note that the file INSTALL.generic contains generic build and 
-installation instructions; it supplements this file (specifically,
-the steps involving 'configure', 'make', and 'make install').
+This file is free documentation; the Free Software Foundation gives
+unlimited permission to copy, distribute and modify it.
 
----
+Basic Installation
+==================
 
-1. Obtain and install libpcap, the packet capture library.
-It is available from http://www.tcpdump.org
+Briefly, the shell commands `./configure; make; make install' should
+configure, build, and install this package.  The following
+more-detailed instructions are generic; see the `README' file for
+instructions specific to this package.
 
-For information about which versions of libpcap the
-program has been successfully used with (and whether any
-versions should be avoided), see the PLATFORMS section below.
+   The `configure' shell script attempts to guess correct values for
+various system-dependent variables used during compilation.  It uses
+those values to create a `Makefile' in each directory of the package.
+It may also create one or more `.h' files containing system-dependent
+definitions.  Finally, it creates a shell script `config.status' that
+you can run in the future to recreate the current configuration, and a
+file `config.log' containing compiler output (useful mainly for
+debugging `configure').
 
-If libpcap isn't supported on your platform, you can't
-use dhcp_probe.
+   It can also use an optional file (typically called `config.cache'
+and enabled with `--cache-file=config.cache' or simply `-C') that saves
+the results of its tests to speed up reconfiguring.  Caching is
+disabled by default to prevent problems with accidental use of stale
+cache files.
 
-Libpcap must be installed to compile dhcp_probe;
-we assume we'll find the libpcap library and header files
-in either /usr/local or the other usual places the compiler
-and linker will search.  If you've installed it elsewhere,
-when you run 'configure' below, remember to specify the
---with-pcap=DIR option.
+   If you need to do unusual things to compile the package, please try
+to figure out how `configure' could check whether to do them, and mail
+diffs or instructions to the address given in the `README' so they can
+be considered for the next release.  If you are using the cache, and at
+some point `config.cache' contains results you don't want to keep, you
+may remove or edit it.
 
---
+   The file `configure.ac' (or `configure.in') is used to create
+`configure' by a program called `autoconf'.  You need `configure.ac' if
+you want to change it or regenerate `configure' using a newer version
+of `autoconf'.
 
-2. Obtain and Install libnet, the packet writing library.
-It is available from http://www.packetfactory.net/libnet
+The simplest way to compile this package is:
 
-For information about which versions of libnet the
-program has been successfully used with (and whether any
-versions should be avoided), see the PLATFORMS section below.
+  1. `cd' to the directory containing the package's source code and type
+     `./configure' to configure the package for your system.
 
-If libnet isn't supported on your platform, you can't
-use dhcp_probe.
+     Running `configure' might take a while.  While running, it prints
+     some messages telling which features it is checking for.
 
-Libnet must be installed to compile the ARP Bomber;
-we assume we'll find the libnet library and header files
-in either /usr/local or the other usual places the compiler
-and linker will search.  If you've installed it elsewhere,
-when you run 'configure' below, remember to specify the
---with-libnet=DIR option.  We also assume we can find
-the 'libnet-config' executable (installed as part of libnet)
-somewhere in your path.
+  2. Type `make' to compile the package.
 
----
+  3. Optionally, type `make check' to run any self-tests that come with
+     the package.
 
-3. `cd' to the directory containing the package's source code and type
-`./configure' to configure the package for your system, possibly 
-specifying options such as --with-pcap=DIR or --with-libnet=DIR if these
-are needed to help it locate those packages.
+  4. Type `make install' to install the programs and any data files and
+     documentation.
 
-Note that because the present version of the program only runs on 
-Solaris 9 SPARC, built with gcc 3.3.3 (it has not been ported to other platforms),
-it ignores much of what 'configure' discovers about your platform.
-Previously it has been built and run successfully on Solaris 7, Solaris 8,
-and with gcc 2.95.2 and 2.95.3, 3.0.4.
+  5. You can remove the program binaries and object files from the
+     source code directory by typing `make clean'.  To also remove the
+     files that `configure' created (so you can compile the package for
+     a different kind of computer), type `make distclean'.  There is
+     also a `make maintainer-clean' target, but that is intended mainly
+     for the package's developers.  If you use it, you may have to get
+     all sorts of other programs in order to regenerate files that came
+     with the distribution.
 
-More information about running 'configure' is available in the INSTALL.generic
-file, and you may type './configure --help' for a summary of options.
+Compilers and Options
+=====================
 
----
+Some systems require unusual options for compilation or linking that the
+`configure' script does not know about.  Run `./configure --help' for
+details on some of the pertinent environment variables.
 
-4. Type `make' to compile the package.
+   You can give `configure' initial values for configuration parameters
+by setting variables in the command line or in the environment.  Here
+is an example:
 
-Ignore the following compiler warning:
+     ./configure CC=c99 CFLAGS=-g LIBS=-lposix
 
-  bootp.c: In function `build_dhcp_payload':
-  bootp.c:80: warning: assignment from incompatible pointer type
+   *Note Defining Variables::, for more details.
 
----
+Compiling For Multiple Architectures
+====================================
 
-5. Type `make install' to install the package.
+You can compile the package for more than one kind of computer at the
+same time, by placing the object files for each architecture in their
+own directory.  To do this, you can use GNU `make'.  `cd' to the
+directory where you want the object files and executables to go and run
+the `configure' script.  `configure' automatically checks for the
+source code in the directory that `configure' is in and in `..'.
 
----
+   With a non-GNU `make', it is safer to compile the package for one
+architecture at a time in the source code directory.  After you have
+installed the package for one architecture, use `make distclean' before
+reconfiguring for another architecture.
 
-6. Create a configuration file dhcp_probe.cf in an appropriate location.
+Installation Names
+==================
 
-The default location for this file is /etc/dhcp_probe.cf, but you can put it
-elsewhere, as long as you specify the new location when you run the program
-using the appropriate command-line option.  
+By default, `make install' installs the package's commands under
+`/usr/local/bin', include files under `/usr/local/include', etc.  You
+can specify an installation prefix other than `/usr/local' by giving
+`configure' the option `--prefix=PREFIX'.
 
-A sample configuration file is supplied in the 'extras' directory; you may wish 
-to use it as a template.
+   You can specify separate installation prefixes for
+architecture-specific files and architecture-independent files.  If you
+pass the option `--exec-prefix=PREFIX' to `configure', the package uses
+PREFIX as the prefix for installing programs and libraries.
+Documentation and other data files still use the regular prefix.
 
-7. Verify that the /etc/services file (or NIS 'services' map, whichever is
-in-use) contains entries for 'bootpc' and 'bootps'.   If they are not
-present, add them:
+   In addition, if you use an unusual directory layout you can give
+options like `--bindir=DIR' to specify different values for particular
+kinds of files.  Run `configure --help' for a list of the directories
+you can set and what kinds of files go in them.
 
-bootps          67/udp                          # BOOTP/DHCP server
-bootpc          68/udp                          # BOOTP/DHCP client
+   If the package supports it, you can cause programs to be installed
+with an extra prefix or suffix on their names by giving `configure' the
+option `--program-prefix=PREFIX' or `--program-suffix=SUFFIX'.
 
----
+Optional Features
+=================
 
-8. To get started, try running it in the foreground and seeing if the debug messages 
-seem reasonable to you.  E.g. as root:
+Some packages pay attention to `--enable-FEATURE' options to
+`configure', where FEATURE indicates an optional part of the package.
+They may also pay attention to `--with-PACKAGE' options, where PACKAGE
+is something like `gnu-as' or `x' (for the X Window System).  The
+`README' should mention any `--enable-' and `--with-' options that the
+package recognizes.
 
-   /usr/local/sbin/dhcp_probe -f -d 11 hme0
+   For packages that use the X Window System, `configure' can usually
+find the X include and library files automatically, but if it doesn't,
+you can use the `configure' options `--x-includes=DIR' and
+`--x-libraries=DIR' to specify their locations.
 
-The -f option prevents it from forking, and also causes all output to be
-sent to stderr instead of to syslog.  Debuglevel 11 will produce maximum
-debugging.  Specify the name of the interface on which to run, e.g. 'hme0'.
+Specifying the System Type
+==========================
 
----
+There may be some features `configure' cannot figure out automatically,
+but needs to determine by the type of machine the package will run on.
+Usually, assuming the package is built to be run on the _same_
+architectures, `configure' can figure that out, but if it prints a
+message saying it cannot guess the machine type, give it the
+`--build=TYPE' option.  TYPE can either be a short name for the system
+type, such as `sun4', or a canonical name which has the form:
 
-9. Arrange to have the program started automatically by root when your host starts.  
+     CPU-COMPANY-SYSTEM
 
-Remove the -f option; this flag should never be specified except for debugging
-purposes.    
+where SYSTEM can have one of these forms:
 
-You'll probably want to reduce the debuglevel; a debuglevel of 0 or 1 is generally
-a good choice for production use.
+     OS KERNEL-OS
 
-Output will be directed to syslog (using the facility specified
-in defaults.h); you'll want to configure syslogd to do something reasonable
-with it.  (You can change the syslog facility name by editing defaults.h and
-recompiling.)  Alternatively, use the -l option to specify a logfile to receive output;
-this prevents syslog from being used.
+   See the file `config.sub' for the possible values of each field.  If
+`config.sub' isn't included in this package, then this package doesn't
+need to know the machine type.
 
----
+   If you are _building_ compiler tools for cross-compiling, you should
+use the option `--target=TYPE' to select the type of system they will
+produce code for.
 
-10. If you want to capture packets received from unknown servers, add the -o
-option when starting up, to specify a capture file.  Be sure to specify 
-a directory for the capture file that no one may write to except root;
-see the dhcp_probe(8) man page for details.
+   If you want to _use_ a cross compiler, that generates code for a
+platform different from the build platform, you should specify the
+"host" platform (i.e., that on which the generated programs will
+eventually be run) with `--host=TYPE'.
 
-Since the program truncates this file each time it starts, you may want to
-modify the script you use to start the program, to save the old version of
-this file before starting the program.
+Sharing Defaults
+================
 
----
+If you want to set default values for `configure' scripts to share, you
+can create a site shell script called `config.site' that gives default
+values for variables like `CC', `cache_file', and `prefix'.
+`configure' looks for `PREFIX/share/config.site' if it exists, then
+`PREFIX/etc/config.site' if it exists.  Or, you can set the
+`CONFIG_SITE' environment variable to the location of the site script.
+A warning: not all `configure' scripts look for a site script.
 
-11. Any additional tools you may find useful can be found in the 'extras' directory.
+Defining Variables
+==================
 
----
-
+Variables not defined in a site shell script can be set in the
+environment passed to `configure'.  However, some packages may run
+configure again during the build, and the customized values of these
+variables may be lost.  In order to avoid this problem, you should set
+them in the `configure' command line, using `VAR=value'.  For example:
 
-PLATFORMS
+     ./configure CC=/usr/local2/bin/gcc
 
-* Platforms known to work
+causes the specified `gcc' to be used as the C compiler (unless it is
+overridden in the site shell script).
 
-The program has been successfully built and used on the following platforms:
+Unfortunately, this technique does not work for `CONFIG_SHELL' due to
+an Autoconf bug.  Until the bug is fixed you can use this workaround:
 
-        Solaris 7 on SPARC
-        gcc 2.95.2
-        libpcap 0.4
-        libnet 1.0.1b
+     CONFIG_SHELL=/bin/bash /bin/bash ./configure CONFIG_SHELL=/bin/bash
 
-        Solaris 7 on SPARC
-        gcc 2.95.2
-        libpcap 0.5
-        libnet 1.0.1b
+`configure' Invocation
+======================
 
-        Solaris 7 on SPARC
-        gcc 2.95.2
-        libpcap 0.6.1
-        libnet 1.0.1b
+`configure' recognizes the following options to control how it operates.
 
-        Solaris 8 on SPARC
-        gcc 2.95.3
-        libpcap 0.6.1
-        libnet 1.0.1b
+`--help'
+`-h'
+     Print a summary of the options to `configure', and exit.
 
-        Solaris 8 on SPARC
-        gcc 2.95.3
-        libpcap 0.6.1
-        libnet 1.0.2a
+`--version'
+`-V'
+     Print the version of Autoconf used to generate the `configure'
+     script, and exit.
 
-        Solaris 8 on SPARC
-        gcc 2.95.3
-        libpcap 0.7.1
-        libnet 1.0.2a
+`--cache-file=FILE'
+     Enable the cache: use and save the results of the tests in FILE,
+     traditionally `config.cache'.  FILE defaults to `/dev/null' to
+     disable caching.
 
-        Solaris 8 on SPARC
-        gcc 3.0.4
-        libpcap 0.7.1
-        libnet 1.0.2a
+`--config-cache'
+`-C'
+     Alias for `--cache-file=config.cache'.
 
-        Solaris 8 on SPARC
-        gcc 3.0.4
-        libpcap 0.7.2
-        libnet 1.0.2a
+`--quiet'
+`--silent'
+`-q'
+     Do not print messages saying which checks are being made.  To
+     suppress all normal output, redirect it to `/dev/null' (any error
+     messages will still be shown).
 
-        Solaris 8 on SPARC
-        gcc 3.0.4
-        libpcap 0.8.1
-        libnet 1.0.2a
+`--srcdir=DIR'
+     Look for the package's source code in directory DIR.  Usually
+     `configure' can determine that directory automatically.
 
-        Solaris 8 on SPARC
-        gcc 3.0.4
-        libpcap 0.8.2
-        libnet 1.0.2a
+`configure' also accepts some other, not widely useful, options.  Run
+`configure --help' for more details.
 
-        Solaris 8 on SPARC
-        gcc 3.0.4
-        libpcap 0.8.3
-        libnet 1.0.2a
-
-        Solaris 9 on SPARC
-        gcc 3.3.3
-        libpcap 0.8.2
-        libnet 1.0.2a
-
-        Solaris 9 on SPARC
-        gcc 3.3.3
-        libpcap 0.8.3
-        libnet 1.0.2a
-
-* libnet library
-
-The current version of this program uses the libnet 1.0.x API.  It has not
-been migrated to work with the libnet 1.1 API yet.  You will need to build
-against a 1.0.x version of libnet.
-
-If you build with recent compilers (e.g. gcc 3.x), the compiler may warn
-about the multi-line '#error' directive in the libnet.h file supplied as part
-of libnet 1.0.x.  This warning can prevent arp_bomber's 'configure' script
-from working properly.  You can work around the problem by editing the libnet.h
-file, to combine the multiple lines of the '#error' directive into a single line.

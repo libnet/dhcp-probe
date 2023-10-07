@@ -2,7 +2,7 @@
 
 SUBDIRS = lib src doc
 
-EXTRA_DIST = COPYING.GPL INSTALL.generic \
+EXTRA_DIST = COPYING.GPL COPYING.LIB INSTALL.dhcp_probe \
 	config/config.guess \
 	config/config.sub \
 	config/install-sh \

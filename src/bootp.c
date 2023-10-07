@@ -25,67 +25,99 @@ unsigned char vendor_option_serverid[1 + 1 + 4]; /* option code, length byte, ip
 unsigned char vendor_option_requestedipaddr[1 + 1 + 4]; /* option code, length byte, ip_addr */
 
 
-void
-init_all_frames(int num_flavors, int write_packet_len)
+int
+init_libnet_context_queue(void)
 {
-/*  Init the global write_packets[] with ptrs to a packet of each flavor.
-	We read the global packet_flavors[] to get a list of all the flavors; we populate write_packets[]
-	   with packet ptrs so they are parallel arrays.
-	The actual memory for the packet frames is allocated here, via libnet_init_packet().
-	You are responsible for freeing each when you are done with them, using libnet_destroy_packet().
-	Arg 'write_packet_len' is the length of the entire frame, the same for all packet flavors.
+/*  Init the libnet context queue (an unnamed global structure maintained by libnet).
+    The queue contains one context for each probe packet flavor we will later write.
+    We construct these probe packets here once, as they do not change during run, 
+      except if signalled to re-read the configuration file.
+	We read the global packet_flavors[] to get a list of all the flavors.
+    Return 1 on success, 0 on failure.
+
+    We're called as part of startup.
+    We're also called if signalled to re-read the configuration file.
 */
 	int i;
-	struct bootp packet_payload;	/* temp space to hold payload for current flavor */
 
-	/* construct all the flavors of packets we may send */
-	for (i = 0; i < num_flavors; i++) {
+	/* Destroy all the libnet contexts (if any), and the context queue (if any). */
+	libnet_cq_destroy();
 
-		/* build payload for this flavor packet */
-		build_dhcp_payload(packet_flavors[i], &packet_payload);
+	/* construct a libnet context for each flavor packet */
+	for (i = 0; i < NUM_FLAVORS; i++) {
 
-		/* allocate buffer for entire frame, store ptr to allocated buffer in write_packets[i] */
-		if (libnet_init_packet(write_packet_len, &write_packets[i]) == -1) {
-			report(LOG_ERR, "libnet_init_packet failed");
-			cleanup();
-			exit(1);
+		libnet_t *l = NULL;
+		char *libnet_errbuf;
+		struct bootp *udp_payload = NULL;
+
+		/* Need a fresh errbuf for each libnet context, 
+		   one that will not disappear when we go out of scope.
+		*/
+		libnet_errbuf = (char *) smalloc(LIBNET_ERRBUF_SIZE, 0);
+
+		/* Initialize libnet context. */
+		if ((l = libnet_init(LIBNET_LINK, ifname, libnet_errbuf)) == NULL) {
+			report(LOG_ERR, "init_libnet_context_queue: libnet_init: error initializing libnet for interface '%s': %s", ifname, libnet_errbuf);
+			return(0);
 		}
 
-		/* insert the payload we built into UDP/IP, frame it with Ethernet, use *write_packets[i] to hold result */
-		build_frame(&packet_payload, write_packets[i]);
+		/* build the DHCP/BOOTP packet; i.e. the DHCP/BOOTP header and payload */
+		if ((udp_payload = build_dhcp_packet(i)) == NULL)
+			return(0);
+
+		/* build the UDP, IPv4, and Ethernet headers */
+		if (! build_frame(l, udp_payload))
+			return(0);
+
+		/* add the current libnet context (a completed packet) to the libnet context queue */
+		char label[NUM_FLAVORS_MAXSTRING];
+		snprintf(label, sizeof(label)-1, "%d", i);
+		if (libnet_cq_add(l, label) == -1) {
+			report(LOG_ERR, "init_libnet_context_queue: libnet_cq_add: error adding libnet context '%s' to queue: %s", label, libnet_errbuf);
+			return(0);
+		}
 	}
 
-	return;
+	return 1; /* success */
 }
 
 
 
 
-int
-build_dhcp_payload(enum dhcp_flavor_t flavor, struct bootp *packet)
+struct bootp *
+build_dhcp_packet(enum dhcp_flavor_t flavor)
 {
-/* Build payload for a DHCP (or BootP) packet.
-   Return true on success, false on failure.
-   Caller must provide the bootp packet buffer into which we'll write.
-   Caller must specify which flavor of packet we should create.
+/* Allocate, build, and return the DHCP/BOOTP packet; i.e. the DHCP/BOOTP header and payload.
+   Return pointer to the packet on success.
+   On failure we return NULL, and no packet has been allocated.
+   Caller must specify which flavor of packet payload we should create.
+
+   We do NOT use libnet_build_dhcpv4() because we want finer-grain control over the construction of
+   the packet.
+
+   The packet we return is suitable for inclusion as 'optional payload' in a libnet_build_udp() constructor.
 */
+
+	struct bootp *packet;
 	unsigned char *next_vendor_option; /* place to write next vendor option */
 
-	/* XXX compiler produces warning because:
-	   next_vendor_option is a pointer to unsigned char, but
-	   &packet->bootp_options is a pointer to an array[64] of char
-	   If in the assignment statement below, I cast the latter to a pointer to unsigned char (to eliminate the compiler warning),
-	   the compiler appears to **alias** the two pointers to each other, breaking everything.  Huh?
+	/* XXX I cannot determine of the contents of the optional payload passed to libnet_build_udp() is COPIED by libnet,
+	   or if libnet just keeps a copy of the pointer.  If the former, I should create the buffer using an auto var;
+	   if the latter I should malloc the buffer.
+	   To be safe, I malloc the buffer.
+	   However, note that if libnet actually COPYIES the contents of my buffer into its own private buffer,
+	   then presumably libnet_destroy() will not free the buffer I malloc'd, so each time we re-read the configuration file,
+	   we will leak the buffer I malloc'd.
 	*/
-	next_vendor_option = &packet->bootp_options;
+	packet = (struct bootp *) smalloc(sizeof(struct bootp), 1);
+	next_vendor_option = packet->bootp_options;
 
-	/* XXX: we don't check to ensure 'next_vendor_option' stays inside 'options' field, since we know
-	   that for the packets we build below, it'll all fit.  If we needed to, we could use the larger
-	   'options' field allowed by DHCP (but not BootP), but then all our payloads won't be the same
+	/* XXX: we don't check to ensure 'next_vendor_option' stays inside 'bootp_options' field, since we know
+	   that for the packets we build, it'll all fit.  If we needed to, we could use the larger
+	   'bootp_options' field allowed by DHCP (but not BootP), but then all our payloads won't be the same
 	   size, a simplifying assumption we're making throughout the code.
 	*/
 
-	bzero(packet, sizeof(struct bootp));
 
 	/* set some fields to fixed values (for most fields, the '0' we just copied in is appropriate) */
 	packet->bootp_htype = HTYPE_ETHER;
@@ -152,100 +184,103 @@ build_dhcp_payload(enum dhcp_flavor_t flavor, struct bootp *packet)
 
 			default:
 
-				report(LOG_ERR, "build_dhcp_payload: internal error: invalid packet flavor");
-				return 0;
+				report(LOG_ERR, "build_dhcp_packet: internal error: invalid packet flavor");
+				free(packet);
+				return NULL;
 				break;
 
 		} /* switch */
 
 	} /* flavor != BOOTP */
 
-
 	/* add END option to options field */
 	insert_option(&next_vendor_option, vendor_option_end, sizeof(vendor_option_end));
 
-	return 1;
+	return packet; /* success */
 }
 
 
 
 
 int
-build_frame(struct bootp *bootp_payload, unsigned char * write_packet)
+build_frame(libnet_t *l, struct bootp *udp_payload)
 {
-/* Caller provides already constructed 'bootp_payload', and a buffer 'write_packet'
-   in which to hold the completed frame.
-   We fill in 'write_frame'.
+/* Build UDP, IPv4, and Ethernet headers. 
+   Caller provides libnet context into which we build.
+   Caller provides already constructed udp_payload.
+   We return true on success, false on failure.
    Note that you must have already init'd the global 'my_eaddr' before calling this!
 */
 	u_char ether_bcast_eaddr[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-	/* build the ethernet header */
-	if (libnet_build_ethernet(
-		ether_bcast_eaddr,					/* ether_dst */
-		GetEther_src()->ether_addr_octet,	/* ether_src */
-		ETHERTYPE_IP,						/* ethertype */
-		NULL, 0,							/* no optional payload */
-		write_packet						/* start of ethernet header in packet */
-		) < 0) {
-			report(LOG_ERR, "libnet_build_ethernet: error");
-			cleanup();
-			exit(1);
-	}
-
-	/* build the IP header */
-	if (libnet_build_ip(
-		LIBNET_UDP_H + sizeof(struct bootp),	/* IP packet len (not including IP header) */
-		0,										/* tos */
-		1,										/* id */
-		0,										/* frag/offset bits */
-		60,										/* ttl */
-		IPPROTO_UDP,							/* protocol */
-		INADDR_ANY,								/* saddr == 0.0.0.0 */
-		INADDR_BROADCAST,						/* daddr == 255.255.255.255 */
-		NULL, 0, 								/* no optional payload */
-		write_packet + LIBNET_ETH_H				/* start of ip header in packet */
-		) < 0) {
-			report(LOG_ERR, "libnet_build_ip: error");
-			cleanup();
-			exit(1);
-	}
-
-	/* build the UDP header, and copy in the udp payload */
+	/* build the UDP header, and copy in the UDP payload */
 	if (libnet_build_udp(
 		PORT_BOOTPC,													/* src_port */
 		PORT_BOOTPS,													/* dst_port */
-		(u_char *) bootp_payload, sizeof(*bootp_payload),				/* optional payload */
-		write_packet + LIBNET_ETH_H + LIBNET_IP_H						/* start of udp header in packet */
-		) < 0) {
-			report(LOG_ERR, "libnet_build_udp: error");
-			cleanup();
-			exit(1);
+		LIBNET_UDP_H + sizeof(struct bootp),							/* UDP packet len */
+		0,																/* UDP checksum, 0 = autofill */
+		(u_int8_t *) udp_payload, sizeof(struct bootp),					/* optional payload  (the DHCP/BOOTP packet) */
+		l,																/* libnet context */
+		0																/* libnet ptag, 0 == create */
+		) == -1) {
+			report(LOG_ERR, "build_frame: libnet_build_udp failed: %s", libnet_geterror(l));
+			return(0);
 	}
 
-	/* compute and insert the IP checksum */
-	if (libnet_do_checksum(
-		write_packet + LIBNET_ETH_H,			/* start of IP header */
-		IPPROTO_IP,								/* compute and insert checksum for this transport protocol */
-		LIBNET_IP_H  							/* IP header length */
-	) < 0) {
-		report(LOG_ERR, "libnet_do_checksum: error");
-		cleanup();
-		exit(1);
+	/* build the IPv4 header */
+	if (libnet_build_ipv4(
+		LIBNET_IPV4_H + LIBNET_UDP_H + sizeof(struct bootp),	/* total IP packet length including all subsequent data */
+		0,														/* tos */
+		1,														/* id */
+		0,														/* frag/offset bits */
+		60,														/* ttl */
+		IPPROTO_UDP,											/* protocol */
+		0,														/* IP checksum, 0 = autofill */
+		INADDR_ANY,												/* saddr == 0.0.0.0 */
+		INADDR_BROADCAST,										/* daddr == 255.255.255.255 */
+		NULL, 0, 												/* no optional payload */
+		l,														/* libnet context */
+		0														/* libnet ptag, 0 == create */
+		) == -1) {
+			report(LOG_ERR, "build_frame: libnet_build_ipv4 failed: %s", libnet_geterror(l));
+			return(0);
 	}
 
-	/* compute and insert the UDP checksum */
-	if (libnet_do_checksum(
-		write_packet + LIBNET_ETH_H,			/* start of IP header */
-		IPPROTO_UDP,							/* compute and insert checksum for this transport protocol */
-		LIBNET_UDP_H + sizeof(struct bootp)		/* IP packet length (not included IP header) */
-	) < 0) {
-		report(LOG_ERR, "libnet_do_checksum: error");
-		cleanup();
-		exit(1);
+	if (use_8021q) {
+
+		/* build the Ethernet 802.1Q header */
+		if (libnet_build_802_1q(
+			ether_bcast_eaddr,										/* ether_dst */
+			GetEther_src()->ether_addr_octet,						/* ether_src */
+			ETHERTYPE_VLAN,											/* TPI */
+			VLAN_PRIORITY,											/* priority (0-7) */
+			VLAN_CFI_FLAG,											/* CFI flag */
+			vlan_id,												/* VLAN ID  (0-4095) */
+			ETHERTYPE_IP,											/* 802.3 len or Ethernet Type II ethertype */
+			NULL, 0,												/* no optional payload */
+			l,														/* libnet context */
+			0														/* libnet ptag, 0 == create */
+			) == -1) {
+				report(LOG_ERR, "build_frame: libnet_build_802_1q failed: %s", libnet_geterror(l));
+				return(0);
+		}
+	} else {
+
+		/* build the Ethernet header */
+		if (libnet_build_ethernet(
+			ether_bcast_eaddr,										/* ether_dst */
+			GetEther_src()->ether_addr_octet,						/* ether_src */
+			ETHERTYPE_IP,											/* ethertype */
+			NULL, 0,												/* no optional payload */
+			l,														/* libnet context */
+			0														/* libnet ptag, 0 == create */
+			) == -1) {
+				report(LOG_ERR, "build_frame: libnet_build_ethernet failed: %s", libnet_geterror(l));
+				return(0);
+		}
 	}
 
-	return 1;
+	return 1; /* success */
 }
 
 

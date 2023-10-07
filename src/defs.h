@@ -57,20 +57,35 @@
 
 #include <sys/wait.h>
 
+#ifdef HAVE_NET_IF_H
 #include <net/if.h>
+#endif
+
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
+#endif
+
+#ifdef HAVE_NETINET_IF_ETHER_H
 #include <netinet/if_ether.h>
+#endif
+
 #include <netinet/in_systm.h> /* for n_long def used by netinet/ip.h */
+
 #include <netinet/ip.h>
+
 #include <netinet/udp.h>
 
 #ifdef HAVE_NETINET_ETHER_H
 #include <netinet/ether.h>
 #endif
 
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
+#endif
 
+#ifdef HAVE_NET_IF_ARP_H
 #include <net/if_arp.h>
+#endif
 
 #ifndef HAVE_INET_ATON_PROTO
 # include   <sys/types.h>

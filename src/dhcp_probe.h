@@ -12,12 +12,13 @@ extern int debug;
 extern int dont_fork;
 extern char *capture_file;
 extern int snaplen;
-
+extern char *ifname;
+extern int use_8021q;
+extern int vlan_id;
 
 extern int sockfd; /* general purpose datagram socket fd for temp use throughout */
 
 extern struct ether_addr my_eaddr;
-
 
 
 
@@ -29,16 +30,13 @@ enum dhcp_flavor_t {
 	DHCP_INIT_REBOOT,   /* send DHCPREQUEST, client in INIT-REBOOT state */
 	DHCP_REBINDING      /* send DHCPREQUEST, client in REBINDING state */
 };
+#define NUM_FLAVORS 5
 
+/* A width at least large enough for a string that will contain the string version of the number NUM_FLAVORS */
+#define NUM_FLAVORS_MAXSTRING (NUM_FLAVORS + 2)
 
 /* An array listing all the valid packet flavors */
 extern enum dhcp_flavor_t packet_flavors[];
-
-/* An array containing ptrs to each of the packet frame flavors we may write */
-extern unsigned char * write_packets[];
-
-#define NUM_FLAVORS (sizeof(packet_flavors) / sizeof(packet_flavors[0]))
-
 
 
 /* forward decls for functions */
@@ -53,6 +51,11 @@ void close_and_reopen_capture_file(void);
 
 enum { MAX_ETHER_ADDR_STR = 18 };
 enum { MAX_IP_ADDR_STR = 18 };
+
+#define VLAN_ID_MIN 0
+#define VLAN_ID_MAX 4095
+#define VLAN_PRIORITY 0x0
+#define VLAN_CFI_FLAG 0x0
 
 
 #endif /* not DCHPPROBE_H */

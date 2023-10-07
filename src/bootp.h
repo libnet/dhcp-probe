@@ -60,13 +60,13 @@ struct bootp {
 #define VENDOR_OPTION_CLIENTID 61
 
 
-int build_dhcp_payload(enum dhcp_flavor_t flavor, struct bootp *packet);
+int init_libnet_context_queue(void);
+struct bootp *build_dhcp_packet(enum dhcp_flavor_t flavor);
+int build_frame(libnet_t *l, struct bootp *udp_payload);
 void insert_option(unsigned char **destination, unsigned char *option, int len);
-int build_frame(struct bootp *bootp_payload, unsigned char * write_packet);
 void init_option_clientid(void);
 void init_option_serverid(void);
 void init_option_requestedipaddr(void);
-void init_all_frames(int num_flavors, int write_packet_len);
 
 
 

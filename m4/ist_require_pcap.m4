@@ -3,7 +3,7 @@ dnl The macro IST_REQUIRE_PCAP
 dnl is by Irwin Tillman, and may be distributed under the GNU Public License.
 dnl See the COPYING file for details.
 dnl
-dnl Version $Id: ist_require_pcap.m4,v 1.1 2001/01/01 17:00:16 irwin Exp $
+dnl Version $Id: ist_require_pcap.m4,v 1.2 2004/11/04 20:47:40 root Exp $
 dnl
 dnl Usage:
 dnl    IST_REQUIRE_PCAP
@@ -71,7 +71,7 @@ This package cannot be compiled without the pcap library.])
 	dnl IST_REQUIRE_PCAP_OLD_LIBS=$LIBS
 	dnl Modify values to reflect pcap
 	CPPFLAGS="$CPPFLAGS -I${IST_REQUIRE_PCAP_INCLUDE}"
-	LDFLAGS="$LDFLAGS -L ${IST_REQUIRE_PCAP_LIB}"
+	LDFLAGS="$LDFLAGS -L${IST_REQUIRE_PCAP_LIB}"
 	dnl we don't add -lpcap to LIBS since ac_check_lib does that later
 	dnl LIBS="$LIBS -lpcap"
 

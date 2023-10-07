@@ -1,3 +1,108 @@
+Wed Mar 14 10:06:15 EDT 2007  Irwin Tillman  (irwin at princeton dot edu)
+
+	* Version 1.2.0 released.
+
+Thu Dec 28 14:28:54 EST 2006  Irwin Tillman  (irwin at princeton dot edu)
+
+	* Upgraded autoconf 2.59 to 2.61.  Upgraded automake 1.9.5 to 1.10.
+
+	* config/config.guess: replace version 2005-07-08 with version 2006-07-02
+	from automake 1.10.
+
+	* config/config.sub: replace version 2005-07-08 with version 2006-09-20
+	from automake 1.10.
+
+	* config/depcomp: replace version 2005-07-09.11 with version 2006-10-15.18
+	from automake 1.10.
+
+	* config/install-sh: replace version 2005-05-14.22 with version 2006-10-14.15
+	from automake 1.10.
+
+	* config/missing: replace version 2005-06-08.21 with version 2006-05-10.23
+	from automake 1.10.
+
+	* config/mkinstalldirs: replace version 2005-06-29.22 with version 2006-05-11.19
+	from automake 1.10.
+
+Wed Nov 22 15:50:47 EST 2006  Irwin Tillman  (irwin at princeton dot edu)
+
+	* configure.ac, configure: correct checks that prevented us from locating
+	<net/if.h>, <net/if_arp.h), <netinet/if_ether.h>
+
+	* src/defs.h: for some (more) system header files, only try to include them
+	if configure found them.
+
+Fri Nov  4 18:18:44 EST 2005  Irwin Tillman  (irwin at princeton dot edu)
+
+	* Upgraded from automake 1.9.5 to 1.9.6.
+
+	* config/config.guess: replaced version 2005-02-10 with version 2005-07-08
+	from automake 1.9.6.
+
+	* config/config.sub: replaced version 2005-02-10 with version 2005-07-08
+	from automake 1.9.6.
+
+	* config/depcomp: replaced version 2005-02-09.22 with version 2005-07-09.11
+	from automake 1.9.6.
+
+	* config/install-sh: replaced version 2005-02-02.21 with version 2005-05-14.22
+	from automake 1.9.6.
+
+	* config/missing: replaced version 2005-02-08.22 with version 2005-06-08.21
+	from automake 1.9.6.
+
+	* config/mkinstalldirs: replaced version 2005-02-02.21 with version 2005-06-29.22
+	from automake 1.9.6.
+
+Mon Oct 10 10:36:57 EDT 2005  Irwin Tillman  (irwin at princeton dot edu)
+
+	* src/dhcp_probe.c: When logging certain errors (malformed packets) in received responses, 
+	add the ether_src of the malformed packet.
+
+Wed Sep 21 16:25:31 EDT 2005  Irwin Tillman  (irwin at princeton dot edu)
+
+    * src/dhcp_probe.c, src/bootp.c, src/dhcp_probe.h, doc/dhcp_probe.8: 
+	add -Q option to specify an 802.1Q VLAN ID for outgoing frames.
+
+Thu Apr  7 14:10:37 EDT 2005  Irwin Tillman  (irwin at princeton dot edu)
+
+	* To prevent specific installation instructions from being overwritten by automake,
+	moved specific installation instructions from INSTALL to INSTALL.arp_bomber,
+	moved generic installation instructions from INSTALL.generic to INSTALL.
+
+	* Upgraded automake from 1.8.3 to 1.9.5.
+
+Sat Dec 25 21:02:19 EST 2004  Irwin Tillman  (irwin at princeton dot edu)
+
+	* INSTALL: remove reference to libnet-config, a utility no longer installed
+	by libnet.
+ 
+Fri Nov  5 10:54:05 EST 2004  Irwin Tillman  (irwin at princeton dot edu)
+
+	* INSTALL: describe change needed to libnet 1.1.2.1 to add 
+	libnet_cq_end_loop().
+
+	* src/dhcp_probe.c: call libnet_cq_end_loop() after iterating
+	through the libnet context queue, to allow us to iterate through
+	it again on next cycle.  Lacking this fix, the program only
+	performs probing once at startup, then all following probe cycles
+	execute without doing any probing. 
+
+	* src/dhcp_probe.c: correct 'writing packet' message to display the
+	libnet context label associated with the probe packet.
+
+	* Version now 1.1.0.
+ 
+Thu Nov  4 16:02:38 EST 2004  Irwin Tillman  (irwin at princeton dot edu)
+
+	* m4/ist_require_pcap.m4, m4/ist_require_libnet.m4:
+	When setting LDFLAGS, omit space after -L.
+
+Wed Nov  3 17:01:48 EST 2004  Irwin Tillman  (irwin at princeton dot edu)
+
+	* Upgraded from the libnet 1.0.2a API to the libet 1.1.2.1 API.
+	We no longer support the old libnet API.
+
 Tue Nov  2 13:08:27 EST 2004  Irwin Tillman  (irwin at princeton dot edu)
 
 	* src/get_myeaddr.c: clear arpreq before using.

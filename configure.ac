@@ -4,7 +4,7 @@ AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_MACRO_DIR(m4)
 
-AM_INIT_AUTOMAKE(dhcp_probe, 1.0.7)
+AM_INIT_AUTOMAKE(dhcp_probe, 1.2.0)
 
 dnl Determine hosttype.
 AC_CANONICAL_HOST
@@ -36,39 +36,42 @@ AC_CHECK_HEADERS(arpa/inet.h)
 AC_CHECK_HEADERS(sys/socket.h)
 
 
-AC_CHECK_HEADERS(net/if.h,,,
-[[if HAVE_SYS_SOCKET_H
+AC_CHECK_HEADERS([net/if.h], [], [],
+[#if HAVE_SYS_SOCKET_H
 # include <sys/socket.h>
 #endif
-]])
+])
 
-AC_CHECK_HEADERS(net/if_arp.h,,,
-[[if HAVE_SYS_SOCKET_H
+AC_CHECK_HEADERS([net/if_arp.h], [], [],
+[#if HAVE_SYS_SOCKET_H
 # include <sys/socket.h>
 #endif
-]])
+])
 
 AC_CHECK_HEADERS(netinet/in.h)
 
-AC_CHECK_HEADERS(netinet/if_ether.h,,,
-[[if HAVE_SYS_SOCKET_H
+AC_CHECK_HEADERS([netinet/if_ether.h], [], [],
+[#if HAVE_SYS_SOCKET_H
 # include <sys/socket.h>
 #endif
-]])
+#if HAVE_NET_IF_H
+# include <net/if.h>
+#endif
+])
 
 AC_CHECK_HEADERS(netinet/in_systm.h)
 
-AC_CHECK_HEADERS(netinet/ip.h,,,
-[[if HAVE_NETINET_IN_H
+AC_CHECK_HEADERS([netinet/ip.h], [], [],
+[#if HAVE_NETINET_IN_H
 # include <netinet/in.h>
 #endif
-]])
+])
 
-AC_CHECK_HEADERS(netinet/udp.h,,,
-[[if HAVE_NETINET_IN_H
+AC_CHECK_HEADERS([netinet/udp.h], [], [],
+[#if HAVE_NETINET_IN_H
 # include <netinet/in.h>
 #endif
-]])
+])
 
 AC_CHECK_HEADERS(sys/file.h sys/filio.h sys/ioctl.h sys/select.h) 
 AC_CHECK_HEADERS(sys/sockio.h sys/stat.h sys/time.h sys/types.h sys/uio.h)

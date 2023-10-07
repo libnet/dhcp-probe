@@ -62,19 +62,16 @@ volatile sig_atomic_t quit_requested; /* for signal requested */
 pcap_t *pd = NULL;					/* libpcap - packet capture descriptor used for actual packet capture */
 pcap_t *pd_template = NULL;			/* libpcap - packet capture descriptor just used as template */
 
-struct libnet_link_int *nd = NULL;	/* libnet - link layer interface network descriptor */
-
 pcap_dumper_t *pcap_dump_d = NULL;	/* libpcap - dump descriptor */
 
 /* An array listing all the valid packet flavors we may write */
 enum dhcp_flavor_t packet_flavors[] = {BOOTP, DHCP_INIT, DHCP_SELECTING, DHCP_INIT_REBOOT, DHCP_REBINDING};
 
-/* An array containing ptrs to each of the packet frames we may write, runs parallel to packet_flavors[] */
-unsigned char * write_packets[NUM_FLAVORS];
-
-struct ether_addr my_eaddr;
 char *ifname;
+struct ether_addr my_eaddr;
 
+int use_8021q = 0;
+int vlan_id = 0;
 
 int 
 main(int argc, char **argv)
@@ -110,7 +107,7 @@ main(int argc, char **argv)
 	else 
 		prog = argv[0];
 
-	while ((c = getopt(argc, argv, "c:d:fhl:o:p:s:vw:")) != EOF) {
+	while ((c = getopt(argc, argv, "c:d:fhl:o:p:Q:s:vw:")) != EOF) {
 		switch (c) {
 			case 'c':
 				if (optarg[0] != '/') {
@@ -159,6 +156,16 @@ main(int argc, char **argv)
 				}
 				pid_file = optarg;
 				break;
+			case 'Q': {
+				char *stmp = optarg;
+				if ((sscanf(stmp, "%d", &vlan_id) != 1) || (vlan_id < VLAN_ID_MIN) || (vlan_id > VLAN_ID_MAX)) {
+					fprintf(stderr, "%s: invalid vlan ID '%s', must be integer %d ... %d\n", prog, optarg, VLAN_ID_MIN, VLAN_ID_MAX);
+					errflag++;
+				} else {
+					use_8021q++;
+				}
+				break;
+			}
 			case 's': {
 				char *stmp = optarg;
 				/* XXX sscanf() silently forces to integer range.  If you specify a value outside
@@ -293,19 +300,17 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	if (debug > 0)
-		report(LOG_INFO, "using interface %s (IP address %s, hardware address %s)", 
-			ifname, inet_ntoa(my_ipaddr), ether_ntoa(&my_eaddr));
-
-	/* open network link layer interface descriptor */
-	if ((nd = libnet_open_link_interface(ifname, libnet_errbuf)) == NULL ) {
-		report(LOG_ERR, "libnet_open_link_interface %s: %s", ifname, libnet_errbuf);
-		cleanup();
-		exit(1);
+	if (debug > 0) {
+		if (use_8021q) {
+			report(LOG_INFO, "using interface %s, 802.1Q VLAN ID %d (IP address %s, hardware address %s)", 
+				ifname, vlan_id, inet_ntoa(my_ipaddr), ether_ntoa(&my_eaddr));
+		} else {
+			report(LOG_INFO, "using interface %s, no 802.1Q (IP address %s, hardware address %s)", 
+				ifname, inet_ntoa(my_ipaddr), ether_ntoa(&my_eaddr));
+		}
 	}
 
-
-	/* Now that we've set nd, we're ready to handle SIGINT, SIGTERM, SIGQUIT ourself */
+	/* We're ready to handle SIGINT, SIGTERM, SIGQUIT ourself */
 	sigemptyset(&sa.sa_mask);
 	sa.sa_handler = catcher;
 	sa.sa_flags = 0;
@@ -374,11 +379,18 @@ main(int argc, char **argv)
 	}
 
 	/* each packet we may write is the same length */
-	write_packet_len = LIBNET_ETH_H + LIBNET_IP_H + LIBNET_UDP_H + sizeof(struct bootp);
+	write_packet_len = LIBNET_IPV4_H + LIBNET_UDP_H + sizeof(struct bootp);
+	if (use_8021q) {
+		write_packet_len +=  LIBNET_802_1Q_H; 
+	} else {
+		write_packet_len +=  LIBNET_ETH_H; 
+	}
 
 	/* init all the frames we may write */
-	init_all_frames(NUM_FLAVORS, write_packet_len);
-
+	if (! init_libnet_context_queue()) {
+		cleanup();
+		exit(1);
+	}
 
 	if (capture_file) { /* we are saving unexpected responses to a capture file */
 
@@ -420,6 +432,7 @@ main(int argc, char **argv)
 
 	while (1) { /* MAIN EVENT LOOP */
 		int promiscuous;
+		libnet_t *l;						/* to iterate through libnet context queue */
 		/* struct pcap_stat ps;	*/			/* to hold pcap stats */
 
 		if (debug > 10)
@@ -473,9 +486,9 @@ main(int argc, char **argv)
 		else
 			promiscuous = 0;
 
-	
 
-		for (i = 0; i < NUM_FLAVORS; i++) { /* write one flavor packet and listen for answers */
+		for (l = libnet_cq_head(); libnet_cq_last(); l = libnet_cq_next()) { /* write one flavor packet and listen for answers */
+
 			int pcap_rc;
 			int pcap_open_retries;
 
@@ -515,7 +528,7 @@ main(int argc, char **argv)
 			}
 			if (pcap_errbuf[0] != '\0')
 				/* even on success, a warning may be produced */
-				report(LOG_WARNING, "pcap_open_live(%s): %s", ifname, pcap_errbuf);
+				report(LOG_WARNING, "pcap_open_live(%s): succeeded but with warning: %s", ifname, pcap_errbuf);
 
 			/* make sure this interface is ethernet */
 			linktype = pcap_datalink(pd);
@@ -541,14 +554,17 @@ main(int argc, char **argv)
 			/* write one packet */
 
 			if (debug > 10)
-				report(LOG_DEBUG, "writing packet %d", i);
+				report(LOG_DEBUG, "writing packet %s", (char *) libnet_cq_getlabel(l));
 
-			bytes_written = libnet_write_link_layer(nd, ifname, write_packets[i], write_packet_len);
-			if (bytes_written < write_packet_len)
-				report(LOG_ERR, "libnet_write_link_layer: for packet flavor %i: bytes written: %d (expected %d)", i, bytes_written, write_packet_len);
+			if ((bytes_written = libnet_write(l)) == -1) {
+				report(LOG_ERR, "libnet_write failed: %s", libnet_geterror(l));
+			} else {
+				if (bytes_written < write_packet_len)
+					report(LOG_ERR, "libnet_write: bytes written: %d (expected %d)", bytes_written, write_packet_len);
+			}
 
 
-			/* XXX Are response packets lost if they arrive between our call (above) to libnet_write_link_layer(), 
+			/* XXX Are response packets lost if they arrive between our call (above) to libnet_write(), 
 			   and our call (below) to pcap_dispatch() ?   It's a long enough window for packets to arrive,
 			   especially if debugging is high enough that we log a message below.
 			*/
@@ -624,6 +640,13 @@ main(int argc, char **argv)
 
 		} /* write each flavor packet and listen for answers */
 
+		/* Cleanup from iterating through the context queue. */
+		if (!libnet_cq_end_loop()) {
+			report(LOG_ERR, "libnet_cq_end_loop() failed");
+			cleanup();
+			exit(1);
+		}
+
 		if (debug > 10)
 			report(LOG_DEBUG, "cycle complete, going to sleep for %d seconds", GetCycle_time());
 
@@ -674,13 +697,6 @@ main(int argc, char **argv)
 
 
 	/* we only reach here after receiving a signal requesting we quit */
-
-	/* shut down write link interface */
-	if (nd) { 
-		if (libnet_close_link_interface(nd) < 0) {
-			report(LOG_ERR, "libnet_close_link_interface failed");
-		}
-	}
 
 	if (pd_template) /* only used if a capture file requested */
 		pcap_close(pd_template); 
@@ -746,7 +762,7 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 		report(LOG_DEBUG, "     interface %s, from ether %s to %s", ifname, ether_shost_str, ether_dhost_str);
 
 	if (ether_len < sizeof(sizeof(struct ether_header)) + sizeof(struct ip)) {
-		report(LOG_WARNING, "interface %s, short packet (got %d bytes, smaller than IP header in Ethernet)", ifname, ether_len);
+		report(LOG_WARNING, "interface %s, ether src %s: short packet (got %d bytes, smaller than IP header in Ethernet)", ifname, ether_shost_str, ether_len);
 		return;
 	}	
 
@@ -775,13 +791,13 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 	udp_header = (struct udphdr *) (packet + sizeof(struct ether_header) + ip_header_len_bytes);
 
 	if (ether_len <  sizeof(sizeof(struct ether_header)) + ip_header_len_bytes + sizeof(struct udphdr)) {
-		report(LOG_WARNING, "interface %s, short packet (got %d bytes, smaller than UDP/IP header in Ethernet)", ifname, ether_len);
+		report(LOG_WARNING, "interface %s ether src %s: short packet (got %d bytes, smaller than UDP/IP header in Ethernet)", ifname, ether_shost_str, ether_len);
 		return;
 	}	
 
 	udp_len = udp_header->uh_ulen;
 	if (udp_len < sizeof(struct udphdr)) {
-		report(LOG_WARNING, "interface %s, invalid UDP packet (UDP length %d, smaller than minimum value %d)", ifname, udp_len, sizeof(struct udphdr));
+		report(LOG_WARNING, "interface %s, ether src %s: invalid UDP packet (UDP length %d, smaller than minimum value %d)", ifname, ether_shost_str, udp_len, sizeof(struct udphdr));
 		return;
 	}
 
@@ -793,7 +809,7 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 	bootp_min_len = sizeof(struct bootp) - BOOTP_OPTIONS_LEN;
 
 	if (udp_payload_len < bootp_min_len) {
-		report(LOG_WARNING, "interface %s, invalid BootP/DHCP packet (UDP payload length %d, smaller than minimal BootP/DHCP payload %d)", ifname, udp_payload_len, bootp_min_len);
+		report(LOG_WARNING, "interface %s, ether src %s: invalid BootP/DHCP packet (UDP payload length %d, smaller than minimal BootP/DHCP payload %d)", ifname, ether_shost_str, udp_payload_len, bootp_min_len);
 		return;
 	}
 
@@ -863,8 +879,7 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 			/* We do allow child to inherit fd 0,1,2.  If we're logging to stderr, we want child to have it too. */
 			if (sockfd) /* We don't want child to inherit the general purpose dgram socket */
 				close(sockfd);
-			if (nd) /* We don't want child to inherit to inherit libnet link layer network descriptor */
-				libnet_close_link_interface(nd);
+			libnet_cq_destroy(); /* We don't want child to inherit to inherit libnet context queue */
 			if (pd) /* We don't want child to inherit packet capture descriptor, nor packet dumpfile descriptor. */
 				pcap_close(pd);
 			if (pcap_dump_d)
@@ -886,8 +901,6 @@ reconfigure(const int write_packet_len)
 {
 /* Perform all necessary functions to handle a request to reconfigure.
    Must not be called until after initial configuration is complete.
-   Needs to know the write_packet_len, only so it can pass it to init_all_frames()
-   Modifies the global write_packets[].
 */
    
 	int i;
@@ -900,11 +913,10 @@ reconfigure(const int write_packet_len)
 
 	/* Contents of the packets we send may need to change as a result of change
 	   to the configuration.  Free the packets we've already constructed, and build new ones. */
-	for (i = 0; i < NUM_FLAVORS; i++) {
-		libnet_destroy_packet(&write_packets[i]);
+	if (! init_libnet_context_queue()) {
+		cleanup();
+		exit(1);
 	}
-
-	init_all_frames(NUM_FLAVORS, write_packet_len);
 
 	return;
 }
@@ -998,6 +1010,9 @@ cleanup(void)
 {
 /*	Cleanup tasks at exit. */
 
+	/* Destroy all the libnet contexts (if any), and the context queue (if any). */
+	libnet_cq_destroy();
+
 	if (pcap_dump_d) /* capture file is open */
 		pcap_dump_close(pcap_dump_d);
 
@@ -1013,7 +1028,7 @@ usage(void)
 {
 /*	Print usage message and return. */
 
-	fprintf(stderr, "Usage: %s [-c config_file] [-d debuglevel] [-f] [-h] [-l log_file] [-o capture_file] [-p pid_file] [-s capture_bufsize] [-v] [-w cwd] interface_name\n", prog);
+	fprintf(stderr, "Usage: %s [-c config_file] [-d debuglevel] [-f] [-h] [-l log_file] [-o capture_file] [-p pid_file] [-Q vlan_id] [-s capture_bufsize] [-v] [-w cwd] interface_name\n", prog);
 	fprintf(stderr, "   -c config_file                 override default config file [%s]\n", CONFIG_FILE);
 	fprintf(stderr, "   -d debuglevel                  enable debugging at specified level\n");
 	fprintf(stderr, "   -f                             don't fork (only use for debugging)\n");
@@ -1021,6 +1036,7 @@ usage(void)
 	fprintf(stderr, "   -l log_file                    log to file instead of syslog\n");
 	fprintf(stderr, "   -o capture_file                enable capturing of unexpected answers\n");
 	fprintf(stderr, "   -p pid_file                    override default pid file [%s]\n", PID_FILE);
+	fprintf(stderr, "   -Q vlan_id                     tag outgoing frames with an 802.1Q VLAN ID\n");
 	fprintf(stderr, "   -s capture_bufsize             override default capture bufsize [%d]\n", CAPTURE_BUFSIZE);
 	fprintf(stderr, "   -v                             display version number then exit\n");
 	fprintf(stderr, "   -w cwd                         override default working directory [%s]\n", CWD);
