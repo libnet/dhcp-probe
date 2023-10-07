@@ -10,6 +10,10 @@ the steps involving 'configure', 'make', and 'make install').
 1. Obtain and install libpcap, the packet capture library.
 It is available from http://www.tcpdump.org
 
+For information about which versions of libpcap the
+program has been succesfully used with (and whether any
+versions should be avoided), see the PLATFORMS section below.
+
 If libpcap isn't supported on your platform, you can't
 use dhcp_probe.
 
@@ -24,6 +28,10 @@ when you run 'configure' below, remember to specify the
 
 2. Obtain and Install libnet, the packet writing library.
 It is available from http://www.packetfactory.net/libnet
+
+For information about which versions of libnet the
+program has been succesfully used with (and whether any
+versions should be avoided), see the PLATFORMS section below.
 
 If libnet isn't supported on your platform, you can't
 use dhcp_probe.
@@ -45,8 +53,10 @@ specifying options such as --with-pcap=DIR or --with-libnet=DIR if these
 are needed to help it locate those packages.
 
 Note that because the present version of the program only runs on 
-Solaris 7 SPARC, built with gcc 2.95.2 (it has not been ported to other platforms),
+Solaris 8 SPARC, built with gcc 3.0.4 (it has not been ported to other platforms),
 it ignores much of what 'configure' discovers about your platform.
+Previously it has been built and run successfully on Solaris 7,
+and with gcc 2.95.2 and 2.95.3.
 
 More information about running 'configure' is available in the INSTALL.generic
 file, and you may type './configure --help' for a summary of options.
@@ -58,7 +68,7 @@ file, and you may type './configure --help' for a summary of options.
 Ignore the following compiler warning:
 
   bootp.c: In function `build_dhcp_payload':
-  bootp.c:78: warning: assignment from incompatible pointer type
+  bootp.c:80: warning: assignment from incompatible pointer type
 
 ---
 
@@ -116,3 +126,60 @@ this file before starting the program.
 ---
 
 10. Any additional tools you may find useful can be found in the 'extras' directory.
+
+---
+
+
+PLATFORMS
+
+* Platforms known to work
+
+The program has been succesfully built and used on the following platforms:
+
+        Solaris 7 on SPARC
+        gcc 2.95.2
+        libpcap 0.4
+        libnet 1.0.1b
+
+        Solaris 7 on SPARC
+        gcc 2.95.2
+        libpcap 0.5
+        libnet 1.0.1b
+
+        Solaris 7 on SPARC
+        gcc 2.95.2
+        libpcap 0.6.1
+        libnet 1.0.1b
+
+        Solaris 8 on SPARC
+        gcc 2.95.3
+        libpcap 0.6.1
+        libnet 1.0.1b
+
+        Solaris 8 on SPARC
+        gcc 2.95.3
+        libpcap 0.6.1
+        libnet 1.0.2a
+
+        Solaris 8 on SPARC
+        gcc 2.95.3
+        libpcap 0.7.1
+        libnet 1.0.2a
+
+        Solaris 8 on SPARC
+        gcc 3.0.4
+        libpcap 0.7.1
+        libnet 1.0.2a
+
+
+* libnet library
+
+The current version of this program uses the libnet 1.0.x API.  It has not
+been migrated to work with the libnet 1.1 API yet.  You will need to build
+against a 1.0.x version of libnet.
+
+If you build with recent compilers (e.g. gcc 3.x), the compiler may warn
+about the multi-line '#error' directive in the libnet.h file supplied as part
+of libnet 1.0.x.  This warning can prevent arp_bomber's 'configure' script
+from working properly.  You can work around the problem by editing the libnet.h
+file, to combine the multiple lines of the '#error' directive into a single line.

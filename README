@@ -6,12 +6,12 @@ dhcp_probe is intended to be used by a network administrator to
 locate unknown BootP and DHCP servers on a directly-attached network.
 
 This software was created by the Network Systems Group at Princeton University's
-Office of Computing and Information Technology, networking@princeton.edu.
+Office of Information Technology, networking@princeton.edu.
 It was written by Irwin Tillman.
 
-It is available from: http://wwwnet.princeton.edu/software/dhcp_probe/
+It is available from: http://www.net.princeton.edu/software/dhcp_probe/
 
-This version runs on Solaris 7 on SPARC, compiled with gcc 2.95.2.
+This version runs on Solaris 8 on SPARC, compiled with gcc. 
 It has not been ported to any other platform at this time.
 This version supports only Ethernet interfaces, not FDDI.
 

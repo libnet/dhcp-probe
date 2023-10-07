@@ -9,7 +9,8 @@ Port to other platforms; stop ignoring most of what autoconf learns.
 this time the program ignores almost everything autoconf discovers
 about your system.  The product was developed on Solaris 7 with gcc 2.95.2,
 and has not been ported to other platforms.  Despite the use of autoconf, the
-code merrily makes assumptions that are only valid on Solaris 7.)
+code merrily makes assumptions that are only valid on Solaris 7 with gcc,
+or similar variations.
 The use of autoconf here is mostly to provide a framework in case the
 product is ported to other platforms in the future.
 

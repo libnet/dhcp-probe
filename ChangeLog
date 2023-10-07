@@ -1,14 +1,62 @@
+Mon May  6 14:07:11 EDT 2002  Irwin Tillman  (irwin@princeton.edu)
+
+	* src/dhcp_probe.c: avoid incorrect use of cpp '##' to allow compilation 
+	in gcc 3.x.
+
+	* config/config.guess: replace with latest version (2002-03-20) from GNU.
+
+	* config/config.sub: replace with latest version (2002-04-26) from GNU.
+
+	* INSTALL: add note about dependancy on libnet 1.0.x API.  Add note about
+	working around a problem in libnet.h when building with recent compilers
+	(e.g. gcc 3.x).
+
+	* configure.in: version number now 1.0.4.
+
+	* Version 1.0.4 released.
+
+Fri Feb 15 13:43:19 EST 2002  Irwin Tillman  (irwin@princeton.edu)
+
+	* src/dhcp_probe.c: if pcap_open_live() returns a warning message
+	upon success, display the warning.
+
+Wed Aug  1 14:17:59 EDT 2001  Irwin Tillman  (irwin@princeton.edu)
+
+	* README doc/dhcp_probe.8: software home has moved from wwwnet.princeton.edu to
+	www.net.princeton.edu.
+
+Tue May  1 14:06:00 EDT 2001  Irwin Tillman  (irwin@princeton.edu)
+
+	* INSTALL: added a PLATFORMS section listing platforms on which
+	the program has been succesfully built and used.
+
+	* doc/dhcp_probe.8: remove specifics about platform versions.
+
+Wed Apr 18 18:51:23 EDT 2001  Irwin Tillman  (irwin@princeton.edu)
+
+	* src/dhcp_probe.c: save and restore errno.
+
+	* src/dhcp_probe.c: quit_requested, reread_config_file, reopen_log_file,
+	and reopen_capture_file should be volatile sig_atomic_t. 
+
+Mon Apr 16 11:03:29 EDT 2001  Irwin Tillman  (irwin@princeton.edu)
+
+	* doc/dhcp_probe.8: BUGS: On platforms where pcap(3) is unable to 
+	support the timeout argument to pcap_open_live() the program may not 
+	reliably detect responses from DHCP and BootP servers, or may not function 
+	at all.
+
 Thu Feb 15 11:10:26 EST 2001  Irwin Tillman  (irwin@princeton.edu)
 
 	* README COPYING doc/dhcp_probe.8 doc/dhcp_probe.cf.5: product
-    is now generally available, also update legal notices.
+	is now generally available, also update legal notices.
 
 	* src/get_myeaddr.c src/get_myipaddr.c COPYING: better identify that
 	these came from "Unix Network Programming", Volume 1, Second Edition.
 
-    * configure.in: version number now 1.0.3.
+	* configure.in: version number now 1.0.3.
 
-    * Version 1.0.3 released.
+	* Version 1.0.3 released.
 
 Sat Jan 27 17:35:10 EST 2001  Irwin Tillman  (irwin@princeton.edu)
 

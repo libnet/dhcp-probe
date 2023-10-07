@@ -1,6 +1,6 @@
-.\" Copyright (c) 2000-2001, The Trustees of Princeton University.  All rights reserved.
+.\" Copyright (c) 2000-2002, The Trustees of Princeton University.  All rights reserved.
 .\"
-.TH DHCP_PROBE 8 "February 14 2001" "Princeton Univ."
+.TH DHCP_PROBE 8 "May 9 2002" "Princeton Univ."
 .SH NAME
 dhcp_probe \- locate DCHP and BootP servers on a directly-attached network
 .SH SYNOPSIS
@@ -116,21 +116,17 @@ servers attached to a network.
 .PP
 dhcp_probe
 is a product of the Network Systems Group at
-Princeton University's Office of Computing and
+Princeton University's Office of 
 Information Technology,
 and is available from
-http://wwwnet.princeton.edu/software/dhcp_probe/
+http://www.net.princeton.edu/software/dhcp_probe/
 .PP
-Presently the product builds and runs on Solaris 7 on SPARC with gcc 2.95.2.
+Presently the product builds and runs on Solaris 8 on SPARC with gcc.
 The program relies on the
 .BR pcap (3)
 and
 .BR libnet (3)
 libraries.
-It has been tested with version 0.5 (and previously with 0.4) of 
-.B pcap
-and version 1.0.1b of
-.BR libnet .
 .SH OPTIONS
 .TP
 .IB \-c \ config_file
@@ -720,7 +716,7 @@ For each probe cycle, show when the cycle begins and ends, when we write a packe
 when we begin and end listening for response packets.
 .SH AUTHOR
 The program was written by Irwin Tillman
-of Princeton University's CIT Network Systems Group.
+of Princeton University's OIT Network Systems Group.
 It was written to run on Solaris 7,
 relying on the generally-available
 .BR pcap (3)
@@ -810,6 +806,15 @@ E.g. if read with
 .BR tcpdump (8),
 it reports:
 .IR "tcpdump: pcap_loop: truncated dump file" .
+.PP
+On platforms where 
+.BR pcap (3)
+is unable to support the 
+.I timeout
+argument to
+.IR pcap_open_live ,
+the program may not reliably detect responses from DHCP and BootP servers,
+or may not function at all.
 .SH "SEE ALSO"
 .LP
 .BR dhcp_probe.cf (5)

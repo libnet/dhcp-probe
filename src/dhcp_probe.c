@@ -7,7 +7,7 @@
 	only answer a selected set of clients will not be discovered.
 */
 
-/* Copyright (c) 2000-2001, The Trustees of Princeton University, All Rights Reserved. */
+/* Copyright (c) 2000-2002, The Trustees of Princeton University, All Rights Reserved. */
 
 
 #ifdef HAVE_CONFIG_H
@@ -27,8 +27,8 @@
 #include "utils.h"
 
 #ifndef lint
-static const char rcsid[] = PASTE("dhcp_probe version ", VERSION);
-static const char copyright[] = "Copyright 2000, Princeton University.  All rights reserved.";
+static const char rcsid[] = "dhcp_probe version " VERSION;
+static const char copyright[] = "Copyright 2000-2002, The Trustees of Princeton University.  All rights reserved.";
 static const char contact[] = "networking@princeton.edu";
 #endif
 
@@ -54,10 +54,10 @@ char *logfile_name = NULL;
 
 int sockfd;
 
-int reread_config_file; /* for signal handler */
-int reopen_log_file; /* for signal handler */
-int reopen_capture_file; /* for signal handler */
-int quit_requested; /* for signal requested */
+volatile sig_atomic_t reread_config_file; /* for signal handler */
+volatile sig_atomic_t reopen_log_file; /* for signal handler */
+volatile sig_atomic_t reopen_capture_file; /* for signal handler */
+volatile sig_atomic_t quit_requested; /* for signal requested */
 
 pcap_t *pd = NULL;					/* libpcap - packet capture descriptor used for actual packet capture */
 pcap_t *pd_template = NULL;			/* libpcap - packet capture descriptor just used as template */
@@ -395,11 +395,15 @@ main(int argc, char **argv)
 		   one will share the key characteristics with the ones we actually use to capture packets (i.e. interface and snaplen).
 		   Note this implies we must not let the user change those values during the run.
 		*/
+		pcap_errbuf[0] = '\0'; /* so we can tell if a warning was produced on success */
 		if ((pd_template = pcap_open_live(ifname, snaplen, 0, 1, pcap_errbuf)) == NULL) {
 			report(LOG_ERR, "pcap_open_live %s: %s", ifname, pcap_errbuf2);
 			cleanup();
 			exit(1);
 		}
+		if (pcap_errbuf[0] != '\0')
+			/* even on success, a warning may be produced */
+			report(LOG_WARNING, "pcap_open_live %s: %s", ifname, pcap_errbuf);
 	
 		/* XXX Note pcap_dump_open() does does an fopen() on capture_file with mode "w", and writes
 		   a pcap header to it.  It's up to the user to ensure the capture_file specified is safe.
@@ -494,6 +498,7 @@ main(int argc, char **argv)
 			*/
 			pcap_open_retries = PCAP_OPEN_LIVE_RETRY_MAX;
 			while (pcap_open_retries--) {
+				pcap_errbuf[0] = '\0'; /* so we can tell if a warning was produced on success */
 				if ((pd = pcap_open_live(ifname, snaplen, promiscuous, GetResponse_wait_time(), pcap_errbuf)) != NULL) {
 					break; /* success */
 				} else { /* failure */
@@ -508,6 +513,9 @@ main(int argc, char **argv)
 					}
 				} /* failure */
 			}
+			if (pcap_errbuf[0] != '\0')
+				/* even on success, a warning may be produced */
+				report(LOG_WARNING, "pcap_open_live(%s): %s", ifname, pcap_errbuf);
 
 			/* make sure this interface is ethernet */
 			linktype = pcap_datalink(pd);
@@ -562,6 +570,13 @@ main(int argc, char **argv)
 			   I ensure that there's no alarm() still left over before we start, and also ensure we don't
 			   get interrupted by SIGCHLD (possible since process_response() could fork an alert_program child).
 			   But we STILL often return from pcap_dispatch() too soon!
+			   April 2001: An update to the pcap(3) man page around version 0.6 (?), along with postings 
+			   on the tcpdump workers mailing list explains what's going on.  The timeout specified in 
+			   pcap_open_live() isn't a timeout in the sense one might expect.  The pcap_dispatch() call 
+			   can return sooner than expected (even immediately), or if no packets are received, might 
+			   never return at all; the behavior is platform-dependant.  I don't have a way to work
+			   around this issue; it means this program  just won't work reliably (or at all) on some
+			   platforms.
 			*/
 
 			alarm(0); /* just in case a previous alarm was still left */
@@ -890,10 +905,12 @@ catcher(int sig)
 		reopen_capture_file = 1;
 		return;
 	} else if (sig == SIGCHLD) { /* reap, e.g. calls to user-specified alert_program_name */
-		int stat;
+		int stat, errno_save;
 
+		errno_save = errno;
 		while ((waitpid(-1, &stat, WNOHANG)) > 0)
 			;
+		errno = errno_save;
 		return;
 	}
 		
