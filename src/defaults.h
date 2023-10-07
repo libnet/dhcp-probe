@@ -20,7 +20,7 @@
 /* Size of arrays for multiply-occurring values in the configuration file.
    If you need to specify more values, increase these sizes.
 */
-#define MAX_LEGAL_SERVERS 64
+#define MAX_LEGAL_SERVERS 512
 #define MAX_LEASE_NETWORKS_OF_CONCERN 128
 #define MAX_LEGAL_SERVER_ETHERSRCS 64
 

@@ -1,10 +1,11 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(src/dhcp_probe.c)
-AC_CONFIG_AUX_DIR(config)
-AC_CONFIG_HEADERS(config.h)
-AC_CONFIG_MACRO_DIR(m4)
+AC_INIT([dhcp_probe], [1.3.1])
+AC_CONFIG_SRCDIR([src/dhcp_probe.c])
+AC_CONFIG_AUX_DIR([config])
+AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_MACRO_DIR([m4])
 
-AM_INIT_AUTOMAKE(dhcp_probe, 1.3.0)
+AM_INIT_AUTOMAKE
 
 dnl Determine hosttype.
 AC_CANONICAL_HOST
@@ -21,8 +22,8 @@ dnl OS-specific libraries.
 
 case "$host" in
 *solaris*)
-	AC_CHECK_LIB(socket, socket, , AC_MSG_ERROR(Can't find libsocket.))
-	AC_CHECK_LIB(nsl, inet_ntoa, , AC_MSG_ERROR(Can't find libnsl.))
+	AC_CHECK_LIB([socket], [socket], , AC_MSG_ERROR([Can't find libsocket.]))
+	AC_CHECK_LIB([nsl], [inet_ntoa], , AC_MSG_ERROR([Can't find libnsl.]))
 	;;
 esac
 
@@ -32,11 +33,11 @@ dnl Checks for header files.
 
 AC_HEADER_STDC
 
-AC_CHECK_HEADERS(ctype.h errno.h fcntl.h netdb.h pthread.h signal.h stdio.h stdlib.h) 
-AC_CHECK_HEADERS(string.h strings.h stropts.h syslog.h time.h unistd.h)
-AC_CHECK_HEADERS(arpa/inet.h)
-AC_CHECK_HEADERS(sys/socket.h)
-AC_CHECK_HEADERS(stdint.h inttypes.h)
+AC_CHECK_HEADERS([ctype.h errno.h fcntl.h netdb.h pthread.h signal.h stdio.h stdlib.h]) 
+AC_CHECK_HEADERS([string.h strings.h stropts.h syslog.h time.h unistd.h])
+AC_CHECK_HEADERS([arpa/inet.h])
+AC_CHECK_HEADERS([sys/socket.h])
+AC_CHECK_HEADERS([stdint.h inttypes.h])
 
 AC_CHECK_HEADERS([net/if.h], [], [],
 [/* In Solaris, before using net/if.h you need sys/socket.h. */
@@ -51,7 +52,7 @@ AC_CHECK_HEADERS([net/if_arp.h], [], [],
 #endif
 ])
 
-AC_CHECK_HEADERS(netinet/in.h)
+AC_CHECK_HEADERS([netinet/in.h])
 
 AC_CHECK_HEADERS([netinet/if_ether.h], [], [],
 [/* In Solaris, before using netinet/if_ether.h you need sys/socket.h and net/if.h. */
@@ -63,7 +64,7 @@ AC_CHECK_HEADERS([netinet/if_ether.h], [], [],
 #endif
 ])
 
-AC_CHECK_HEADERS(netinet/in_systm.h)
+AC_CHECK_HEADERS([netinet/in_systm.h])
 
 AC_CHECK_HEADERS([netinet/ip.h], [], [],
 [#if HAVE_NETINET_IN_H
@@ -77,15 +78,15 @@ AC_CHECK_HEADERS([netinet/udp.h], [], [],
 #endif
 ])
 
-AC_CHECK_HEADERS(sys/file.h sys/filio.h sys/ioctl.h sys/resource.h sys/select.h) 
-AC_CHECK_HEADERS(sys/sockio.h sys/stat.h sys/time.h sys/types.h sys/uio.h)
-AC_CHECK_HEADERS(sys/un.h sys/wait.h)
+AC_CHECK_HEADERS([sys/file.h sys/filio.h sys/ioctl.h sys/resource.h sys/select.h]) 
+AC_CHECK_HEADERS([sys/sockio.h sys/stat.h sys/time.h sys/types.h sys/uio.h])
+AC_CHECK_HEADERS([sys/un.h sys/wait.h])
 dnl netinet/ether.h is supplied by GNU C Library
-AC_CHECK_HEADERS(netinet/ether.h)
+AC_CHECK_HEADERS([netinet/ether.h])
 
-AC_CHECK_HEADERS(net/if_dl.h)
+AC_CHECK_HEADERS([net/if_dl.h])
 dnl ifaddrs.h is supplied by many *BSDs
-AC_CHECK_HEADERS(ifaddrs.h)
+AC_CHECK_HEADERS([ifaddrs.h])
 
 dnl ##########################################################################
 
@@ -107,16 +108,24 @@ dnl Checks for other required or optional packages.
 dnl We require the libpcap header and library.
 IST_REQUIRE_PCAP
 
+dnl We require a declaration for the pcap_breakloop() function; older versions of libpcap lack it.
+dnl It should be declared as a result of including pcap.h.
+AC_CHECK_DECL([pcap_breakloop], [], AC_MSG_ERROR([Didn't find a declaration for the pcap_breakloop() function.  Perhaps libpcap is too old.  See INSTALL.dhcp_probe.]), [[#include <pcap.h>]])
+
+dnl We require a declaration for the pcap_breakloop() function; older versions of libpcap lack it.
+dnl It should be defined in the pcap library.
+AC_CHECK_FUNC([pcap_breakloop], [], AC_MSG_ERROR([Didn't find the pcap_breakloop() function. Perhaps libpcap is too old.  See INSTALL.dhcp_probe.]))
+
 dnl We require the libnet header and library.
 IST_REQUIRE_LIBNET
 
 dnl We require a declaration for the libnet_cq_end_loop() function.
 dnl It should be declared as a result of including libnet.h if the user has added it as per INSTALL.dhcp_probe.
-AC_CHECK_DECL(libnet_cq_end_loop, [], AC_MSG_ERROR([Didn't find a declaration for the libnet_cq_end_loop() function.  See INSTALL.dhcp_probe.]), [[#include <libnet.h>]])
+AC_CHECK_DECL([libnet_cq_end_loop], [], AC_MSG_ERROR([Didn't find a declaration for the libnet_cq_end_loop() function.  See INSTALL.dhcp_probe.]), [[#include <libnet.h>]])
 
 dnl We require a definition for the libnet_cq_end_loop() function.
 dnl It should be defined in the libnet library if the user has added it as per INSTALL.dhcp_probe.
-AC_CHECK_FUNC(libnet_cq_end_loop, [], AC_MSG_ERROR([Didn't find the libnet_cq_end_loop() function. See INSTALL.dhcp_probe.]))
+AC_CHECK_FUNC([libnet_cq_end_loop], [], AC_MSG_ERROR([Didn't find the libnet_cq_end_loop() function. See INSTALL.dhcp_probe.]))
 
 dnl ##########################################################################
 
@@ -253,22 +262,22 @@ dnl ##################################################################
 
 dnl Checks for library functions.
 
-AC_CHECK_FUNCS(bcmp bcopy bzero) 
-AC_CHECK_FUNCS(vsnprintf) 
-AC_CHECK_FUNCS(sysconf getrlimit)
-AC_CHECK_FUNCS(getifaddrs)
+AC_CHECK_FUNCS([bcmp bcopy bzero]) 
+AC_CHECK_FUNCS([vsnprintf]) 
+AC_CHECK_FUNCS([sysconf getrlimit])
+AC_CHECK_FUNCS([getifaddrs])
 
 dnl ##################################################################
 
 dnl Check for oft-missing library functions for which we provide a fallback implementation.
 
-AC_REPLACE_FUNCS(strerror)
-AC_REPLACE_FUNCS(inet_aton)
+AC_REPLACE_FUNCS([strerror])
+AC_REPLACE_FUNCS([inet_aton])
 
 dnl Include a library functions that we expect to be missing, to ensure that when our
 dnl library of replacement functions is built, it contains at least one member.
 dnl (Empty libraries are not portable.)
-AC_REPLACE_FUNCS(my_null_proc)
+AC_REPLACE_FUNCS([my_null_proc])
 
 dnl ##################################################################
 
@@ -279,4 +288,6 @@ IST_SYS_SOCKET_IOCTLS_USE_STREAMS
 
 dnl ##################################################################
 
-AC_OUTPUT(Makefile lib/Makefile src/Makefile doc/Makefile, [date > stamp-h])
+AC_CONFIG_FILES([Makefile lib/Makefile src/Makefile doc/Makefile])
+AC_CONFIG_COMMANDS([stamp-h], [date > stamp-h])
+AC_OUTPUT

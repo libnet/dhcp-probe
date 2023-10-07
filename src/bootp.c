@@ -1,4 +1,4 @@
-/* Copyright (c) 2000-2008, The Trustees of Princeton University, All Rights Reserved. */
+/* Copyright (c) 2000-2021, The Trustees of Princeton University, All Rights Reserved. */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -11,6 +11,7 @@
 #include "bootp.h"
 #include "configfile.h"
 #include "report.h"
+#include "utils.h"
 
 
 

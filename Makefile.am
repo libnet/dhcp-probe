@@ -3,6 +3,7 @@
 SUBDIRS = lib src doc
 
 EXTRA_DIST = COPYING.GPL COPYING.LIB INSTALL.dhcp_probe PLATFORMS \
+	config/compile \
 	config/config.guess \
 	config/config.sub \
 	config/install-sh \
@@ -19,9 +20,10 @@ EXTRA_DIST = COPYING.GPL COPYING.LIB INSTALL.dhcp_probe PLATFORMS \
 	extras/dhcp_probe.cf.sample \
 	extras/dhcp_probe.FreeBSD.sh \
 	extras/dhcp_probe.startup.Solaris9 \
+	extras/dhcp_probe.xml \
 	extras/dhcp_probe_notify \
 	extras/dhcp_probe_notify2 \
 	extras/mail-throttled \
+	extras/rotate_logs \
+	extras/site-application-dhcp_probe \
 	extras/README
-
-ACLOCAL_AMFLAGS = -I m4

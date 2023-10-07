@@ -63,14 +63,14 @@ get_myeaddr(int sockfd, struct in_addr *my_ipaddr, struct ether_addr *my_eaddr, 
      Ethernet addr, store it in 'my_eaddr'.
      Ignores my_ipaddr.
      Needs a dgram sockfd for temp use.
-   This is what you'll typically see on Solaris 9.
+   This is what you'll typically see on Linux.
 
    Else if SIOCGARP is defined:
      We use the SIOCGARP ioctl to do our work as follows:
      Given my IP address 'my_ipaddr', determine the corresponding Ethernet addr, store it in 'my_eaddr'.
      Needs a dgram sockfd for temp use.
      May optionally be passed the interface name, which is needed on some platforms, else NULL.
-   This is what you'll typically see on Linux.
+   This is what you'll typically see on Solaris 9.
 
    Else if HAVE_GETIFADDRS is defined:
      We use getifaddrs() to do our work as follows:

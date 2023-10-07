@@ -1,0 +1,325 @@
+#!/bin/sh
+#
+# $Header: /usr/local/src/dhcp_probe-latest/extras/RCS/site-application-dhcp_probe,v 1.1 2011/12/14 20:32:03 root Exp root $
+#
+# This is a Solaris SMF method script (a startup script) for the dhcp_probe daemon.
+#
+# Usage:
+#   site-application-dhcp_probe [-v] -i interface [-Q vlan_id|none] [-r] [-d debuglevel] start
+#   site-application-dhcp_probe [-v] -i interface stop contract_id
+#
+# -d debuglevel   call dhcp_probe with '-d debuglevel' overridding default DEBUG_OPT constant below.
+# -i interface    name of network interface on which to run
+# -Q vlan_id      call dhcp_probe with '-Q vlan_id'
+# -r              rotate capture files before starting daemon
+# -v              enable verbosity
+#
+#
+# When starting, if the daemon is already executing (based on $PIDFILE), don't re-execute it.
+#
+# To try to minimize the likelihood that the processid stored in the PID file corresponds
+# to an unrelated process (common with startup scripts), we'll clear the contents of the
+# PID file when we kill the daemon using this script.   When starting or stopping, when we find a pid in that file,
+# we'll both check that a process with that pid exists, and that the commandname for the process
+# looks like the one we're interested in before we treat the pid value as valid.
+#
+# When stopping, we kill the pid specified in $PIDFILE, if $PIDFILE exists and
+# contains a value that is for a running process whose commandname looks like
+# the one we're interested in.  Regardless of how that goes, we'll also
+# kill the service contract (assuming a contract_id is given); that will help
+# us kill the daemon in those cases where the pidfile and the daemon have
+# gotten out-of-sync, as well as ensure all children of the daemon are killed.
+
+
+. /lib/svc/share/smf_include.sh
+
+PATH=/usr/bin:/bin
+
+SERVERROOT=/usr/local/sbin
+
+PROGNAME=dhcp_probe
+
+# If PIDFILE exists and refers to a running process,
+# and that process's command string contains PS_SEARCH,
+# we'll assume this program instance is already running.
+PS_SEARCH=$PROGNAME
+
+EXECUTABLE=$SERVERROOT/$PROGNAME
+
+# Working directory before starting daemon.
+CWD=/tmp
+
+# Directory in which to write the pidfile
+PIDFILEDIR=/var/run
+
+# Directory in which to find the config file
+CONFIGFILEDIR=/etc
+
+# Signal to kill daemon gracefully.
+SIGNAL=TERM
+
+# This will be set via cmdline option '-i interface'
+INTERFACE=
+
+# This may be overridden via cmdline option '-Q vlan_id'
+VLAN_OPT=
+
+# Directory in which to write the capture files
+CAPTUREDIR=/var/local/logs
+
+# Number of capture files to retain (when rotating these files)
+CAPTUREFILES_MAX=20
+
+# Absolute path of the rotate_logs executable.
+# Used when starting service iff '-r' option specified.
+ROTATE_LOGS_EXEC=/usr/local/etc/rotate_logs
+
+# Debug option to pass to dhcp_probe.
+# Set to empty string to disable.
+# May be overridden via '-d debuglevel'.
+DEBUG_OPT="-d 1"
+
+cd $CWD
+
+while [ $# -gt 0 ]
+do
+	case "$1" in 
+
+		'-d')
+			# The debuglevel is supposed to be the token after '-d'.
+			# Overrride default DEBUG constant.
+			shift
+			DEBUG_OPT="-d $1"
+			;;
+
+		'-i')
+			# The interface name is supposed to be the token after '-i'.
+			shift
+			INTERFACE="$1"
+			;;
+
+		'-Q')
+			# The vlan_id is supposed to be the token after '-Q'.
+			shift
+			if [ "$1" = "none" ]; then
+				# The token "none" is special, indicating that no -Q option should be passed.
+				# It's a kludge to allow our caller to always pass a '-Q value' option,
+				# for those callers (like SMF) which make it hard to pass *optional* options which take values.
+				:
+			else
+				VLAN_OPT="-Q $1"
+			fi
+			;;
+
+		'-r')
+			rotate_capturefile=1
+			;;
+
+		'-v')
+			verbose=1
+			;;
+
+		'start')
+			# The interface must have been specified before the 'start' argument.
+			if [ -z "$INTERFACE" ]; then
+				echo "$0: interface not specified, cannot start $PROGNAME" 2>&1 | smf_console
+				exit $SMF_EXIT_ERR_FATAL
+			fi
+
+			# Some values we could not determine until the INTERFACE was set.
+
+			PIDFILE=$PIDFILEDIR/$PROGNAME.$INTERFACE.pid
+
+			CONFIGFILE=$CONFIGFILEDIR/$PROGNAME.$INTERFACE.cf
+
+			# Capture file name (without the directory name)
+			CAPTUREFILENAME=$PROGNAME.$INTERFACE.capture
+
+			# Absolute capture file name
+			CAPTUREFILE=$CAPTUREDIR/$CAPTUREFILENAME
+
+			STARTCOMMAND="$EXECUTABLE $DEBUG_OPT -c $CONFIGFILE -o $CAPTUREFILE -p $PIDFILE $VLAN_OPT $INTERFACE"
+
+			echo "$0: starting $PROGNAME instance on interface $INTERFACE ..." 2>&1 | smf_console
+
+			if [ !  -f $EXECUTABLE ]; then
+				echo "$0: executable $EXECUTABLE does not exist, cannot start $PROGNAME instance on interface $INTERFACE" 2>&1 | smf_console
+				exit $SMF_EXIT_ERR_FATAL
+			fi
+
+			if [ !  -f $CONFIGFILE ]; then
+				echo "$0: configuration file $CONFIGFILE does not exist, cannot start $PROGNAME instance on interface $INTERFACE" 2>&1 | smf_console
+				exit $SMF_EXIT_ERR_CONFIG
+			fi
+
+			# If we find the daemon already running, exit.  Else fall through to the $STARTCOMMAND
+			if [ -f $PIDFILE ]; then
+				pid=`/usr/bin/cat $PIDFILE`
+				if [ -n "$pid" ]; then
+					if kill -0 "$pid" > /dev/null 2>&1 ; then
+						# there is a process with that pid, but is it the right one?
+						/usr/bin/ps -f -p $pid | /usr/bin/tail -1 | /usr/bin/grep $PS_SEARCH > /dev/null 2>&1
+						if [ $? -eq 0 ] ; then
+							echo "$0: $PIDFILE=$pid processid exists with reasonable name, assuming $PROGNAME instance on interface $INTERFACE is already running" 2>&1 | smf_console
+							exit $SMF_EXIT_OK
+						else
+							# that process is something else, so we can assume ours isn't already running
+							# Clearing our pidfile is just good housekeeping, not required
+							/usr/bin/cp /dev/null $PIDFILE
+						fi
+					fi	# else no process running with that pid, so we assume it's not already running
+				fi	# else pidfile doesn't contain a number, so we assume it's not already running
+			fi	# else no pidfile, so we assume it's not already running
+
+			# Success!  It really looks like the daemon isn't already running, so start it
+
+			###
+			# This is specific to dhcp_probe
+			#
+			# As each time dhcp_probe starts, it overwrites the capture file.
+			# If you want to preserve the previous capture file(s), rotate those file(s) before starting dhcp_probe.
+			if [ -n "$rotate_capturefile" ] ; then
+				# Note that we could not determine some of these args until after $INTERFACE was set.
+  				$ROTATE_LOGS_EXEC -logdir="$CAPTUREDIR" -logname="$CAPTUREFILENAME" -max="-$CAPTUREFILES_MAX"
+			fi
+			#
+			####
+
+			$STARTCOMMAND
+			echo "done starting $PROGNAME instance on interface $INTERFACE" 2>&1 | smf_console
+			exit $SMF_EXIT_OK
+
+
+			;;
+
+
+
+		'stop')
+
+			if [ -z "$INTERFACE" ]; then
+				echo "$0: interface not specified, cannot stop $PROGNAME" 2>&1 | smf_console
+				exit $SMF_EXIT_ERR_FATAL
+
+				# XXX Does Solaris ever call the stop method with just the contract_id (lacking the interface name)?
+				# If so, then we should allow the method to run even without an interface name.
+				# (We really want the interface name as it allows us to find the PIDFILE.)
+			fi
+
+			# We could not determine the PIDFILE until the INTERFACE was set.
+			PIDFILE=$PIDFILEDIR/$PROGNAME.$INTERFACE.pid
+
+			echo "$0: stopping $PROGNAME instance on interface $INTERFACE ..." 2>&1 | smf_console
+
+			# The service contract_id is supposed to be the token after 'stop'.
+			shift
+			contract_id="$1"
+
+			if [ -f $PIDFILE ] ; then
+
+				pid=`/usr/bin/cat $PIDFILE`
+				if [ -n "$pid" ]; then
+
+					if kill -0 "$pid" > /dev/null 2>&1 ; then
+						# there is a process with that pid, but is it the right one?
+						/usr/bin/ps -f -p $pid | /usr/bin/tail -1 | /usr/bin/grep $PS_SEARCH > /dev/null 2>&1
+						if [ $? -eq 0 ] ; then
+							# Success! The process has reasonable name, go ahead and kill it
+							kill -$SIGNAL $pid
+
+							/usr/bin/cp /dev/null $PIDFILE
+
+							# Kill any processes left in service contract
+							if [ -n "$contract_id" ] ; then
+								smf_kill_contract $contract_id $SIGNAL 1
+								[ $? -ne 0 ] && exit 1
+							fi
+
+							echo "done stopping $PROGNAME instance on interface $INTERFACE" 2>&1 | smf_console
+							exit $SMF_EXIT_OK
+
+						else
+							# The process with that pid does NOT have a reasonable name.
+							if [ -n "$verbose" ]; then
+								echo "$0: $PIDFILE=$pid processid is for different daemon, will NOT kill that pid" 2>&1 | smf_console
+							fi
+							# Clearing our pidfile is just good housekeeping, not required
+							/usr/bin/cp /dev/null $PIDFILE
+
+							# It's not clear why the $PIDFILE doesn't correspond to the correct daemon, but perhaps the service is still running with a different pid.
+							# Kill any processes left in service contract
+							if [ -n "$contract_id" ] ; then
+								smf_kill_contract $contract_id $SIGNAL 1
+								[ $? -ne 0 ] && exit 1
+							fi
+
+							echo "done stopping $PROGNAME" 2>&1 | smf_console
+							exit $SMF_EXIT_OK
+						fi
+
+					else
+						# there is no process with that pid
+						if [ -n "$verbose" ]; then
+							echo "$0: $PIDFILE=$pid processid does not exist" 2>&1 | smf_console
+						fi
+						# Clearing our pidfile is just good housekeeping, not required
+						/usr/bin/cp /dev/null $PIDFILE
+
+						# Perhaps the $PIDFILE was overwritten as a result of some problem, but the service is still running.
+						# Kill any processes left in service contract
+						if [ -n "$contract_id" ] ; then
+							smf_kill_contract $contract_id $SIGNAL 1
+							[ $? -ne 0 ] && exit 1
+						fi
+
+						echo "done stopping $PROGNAME instance on interface $INTERFACE" 2>&1 | smf_console
+						exit $SMF_EXIT_OK
+					fi
+				else 
+					if [ -n "$verbose" ]; then
+						echo "$0: pidfile $PIDFILE is empty" 2>&1 | smf_console
+					fi
+
+					# Perhaps the $PIDFILE was emptied as a result of some problem, but the service is still running.
+					# Kill any processes left in service contract
+					if [ -n "$contract_id" ] ; then
+						smf_kill_contract $contract_id $SIGNAL 1
+						[ $? -ne 0 ] && exit 1
+					fi
+
+					echo "done stopping $PROGNAME instance on interface $INTERFACE" 2>&1 | smf_console
+					exit $SMF_EXIT_OK
+				fi
+
+			else
+				if [ -n "$verbose" ]; then
+					echo "$0: pidfile $PIDFILE not found" 2>&1 | smf_console
+				fi
+
+				# Perhaps the $PIDFILE was removed as a result of some problem, but the service is still running.
+				# Kill any processes left in service contract
+				if [ -n "$contract_id" ] ; then
+					smf_kill_contract $contract_id $SIGNAL 1
+					[ $? -ne 0 ] && exit 1
+				fi
+
+				echo "done stopping $PROGNAME instance on interface $INTERFACE"  2>&1 | smf_console
+				exit $SMF_EXIT_OK
+			fi
+
+			# NOTREACHED
+			;;
+
+		*)
+			echo "$0: Unrecognized argument: $1"
+			echo "Usage:"
+			echo "  $0 [-v] -i interface [-Q vlan_id|none] [-r] [-d debuglevel] start"
+			echo "  $0 [-v] -i interface stop contract_id"
+
+			exit $SMF_EXIT_ERR_CONFIG
+			;;
+	esac
+
+	shift
+
+done
+

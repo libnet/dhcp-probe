@@ -1,6 +1,6 @@
-.\" Copyright (c) 2000-2009, The Trustees of Princeton University.  All rights reserved.
+.\" Copyright (c) 2000-2021, The Trustees of Princeton University.  All rights reserved.
 .\"
-.TH DHCP_PROBE.CF 5 "Mar 9 2009" "Princeton Univ."
+.TH DHCP_PROBE.CF 5 "Jan 18 2021" "Princeton Univ."
 .SH NAME
 dhcp_probe.cf \- configuration file for dhcp_probe
 .SH SYNPOSIS
@@ -102,6 +102,12 @@ If you specify this value, you may also wish to specify the same value in the
 .B ether_src
 statement.
 See the description of that statement for further discussion.
+.PP
+The 
+.B chaddr
+statement is required if 
+.B do_not_lookup_enet_and_ip_addresses
+is specified.
 .SS \fBether_src\fP
 .RS
 .PP
@@ -142,6 +148,43 @@ Additionally, specifying the same
 .I ether_src value
 could help you discover any buggy BootP or DHCP servers
 that mistakenly direct their responses to the sender's ether_src (instead of to the sender's bootp_chaddr).
+.PP
+The 
+.B ether_src
+statement is required if
+.B do_not_lookup_enet_and_ip_addresses
+is specified.
+.SS \fBdo_not_lookup_enet_and_ip_addresses\fP
+.RS
+.PP
+The 
+.B do_not_lookup_enet_and_ip_addresses
+statement is optional.
+When not specified, the program will try to look up the 
+Ethernet address of the network interface specified on the commandline.
+(It does so by querying the operating system for this information.)
+In order to do so, it may need to first look up the IP address 
+of the network interface specified on the commandline.
+Performing either operation may be troublesome on some interfaces
+or platforms.
+Failure of these lookups is a fatal error.
+.PP
+Specifying 
+.B do_not_lookup_enet_and_ip_addresses
+instructs the program to not try to look up the interface's
+Ethernet address and IP address.
+.PP
+If 
+.B do_not_lookup_enet_and_ip_addresses
+is specified, then both
+.B ether_src
+and
+.B chaddr
+must be specified.
+.PP
+Specifying
+.B do_not_lookup_enet_and_ip_addresses
+may allow use of this program on interfaces configured with no IP address.
 .SS \fBserver_id\fP
 .RS
 .PP
@@ -342,7 +385,7 @@ of this when you listed the last-hop router(s).
 .PP
 The 
 .B legal_server_ethersrc
-statement is considered experimental in version 1.3.0,
+statement is considered experimental in versions 1.3.0 - 1.3.1,
 as it has received only limited testing.
 .SS \fBlease_network_of_concern\fP
 .RS
@@ -472,10 +515,10 @@ you specify is called with the following required options:
 .PP
 .RS
 .nf
--p the name of the calling program (e.g. dhcp_probe),
--I the name of the interface on which the unexpected response packet was received
--i the IP source address of the packet
--m Ethernet source address of the packet
+\-p the name of the calling program (e.g. dhcp_probe),
+\-I the name of the interface on which the unexpected response packet was received
+\-i the IP source address of the packet
+\-m Ethernet source address of the packet
 .fi
 .RE
 .PP
@@ -483,7 +526,7 @@ The following non-required options may also be passed:
 .PP
 .RS
 .nf
--y the non-zero yiaddr value from the packet, when it falls inside a "Lease Network of Concern"
+\-y the non-zero yiaddr value from the packet, when it falls inside a "Lease Network of Concern"
 .fi
 .RE
 .PP
@@ -567,7 +610,6 @@ chaddr 0:0:0:1:2:3
 #    ether_src enet-addr
 
 ether_src 0:0:0:1:2:3
-
 
 # ----------------------------------------------------------------------------------
 #
@@ -723,7 +765,7 @@ legal_server 192.168.3.4
 #   alert_program_name2 /absolute/path/name
 #
 # The program specified via 'alert_program_name2' will be called as follows:
-#   /absolute/path/name  -p name_of_calling_program  -I name_of_interface_on_which_the_response_was_received  -i IP_source_of_the_response  -m ether_src_of_the_response [-y yiaddr_when_in_lease_networks_of_concern]
+#   /absolute/path/name  \-p name_of_calling_program  \-I name_of_interface_on_which_the_response_was_received  \-i IP_source_of_the_response  \-m ether_src_of_the_response [\-y yiaddr_when_in_lease_networks_of_concern]
 # The options may appear in any order.
 # The program must silently ignore any options or arguments it does not recognize,
 # so as to be forward-compatible with future enhancements to dhcp_probe.
@@ -756,6 +798,21 @@ alert_program_name2 /usr/local/etc/dhcp_probe_notify2
 
 lease_network_of_concern 128.112.0.0 255.255.0.0
 lease_network_of_concern 140.180.0.0 255.255.0.0
+
+# ----------------------------------------------------------------------------------
+#
+# MISCELLANEOUS
+#
+# If the 'do_not_lookup_enet_and_ip_addresses' statement is specified, 
+# the program will not try to look up the ethernet address of the
+# network interface specified on the commandline.  (That in turn, may also require
+# the program to look up the IP address of that network interface.)
+# Specifying this can allow the program to run on some platforms and interfaces
+# where one of those lookups would fail.
+#
+# If specified, both ether_src and chaddr must also be specified.
+#
+# do_not_lookup_enet_and_ip_addresses
 
 
 

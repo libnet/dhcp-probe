@@ -32,3 +32,22 @@ If you choose to use it, place it in /usr/local/etc/rc.d/ with the
 filename 'dhcp_probe.sh', then enable it in /etc/rc.conf:
 dhcp_probe_enable="YES"
 dhcp_probe_flags="<interface>"
+
+dhcp_probe.xml is a sample SMF manifest file and site-application-dhcp_probe 
+is a sample Solaris method script, for use with Solaris SMF.
+If you choose to use them, place site-application-dhcp_probe in
+/lib/svc/method/site-application-dhcp_probe (for example), and
+place dhcp_probe.xml in /var/svc/manifest/site/application/dhcp_probe.xml
+(for example).  Edit dhcp_probe.xml to specify an instance for each 
+network interface on which you wish to run the program, naming each instance
+the same as the network interface name.    Edit site-application-dhcp_probe
+as necessary.  Then import the manifest and enable each desired instance, for example:
+  /usr/sbin/svccfg -v validate /var/svc/manifest/site/application/dhcp_probe.xml
+  /usr/sbin/svccfg -v import   /var/svc/manifest/site/application/dhcp_probe.xml
+  svcadm enable svc:/site/application/dhcp_probe:INSTANCE1
+  svcadm enable svc:/site/application/dhcp_probe:INSTANCE2
+  svcadm enable svc:/site/application/dhcp_probe:INSTANCE3
+  etc.
+
+rotate_logs is a log rotation utility which may optionally be used
+by site-application-dhcp_probe to rotate packet capture files.

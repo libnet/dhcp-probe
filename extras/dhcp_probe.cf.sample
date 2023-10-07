@@ -219,4 +219,17 @@
 # alert_program_name2 /usr/local/etc/dhcp_probe_notify2
 
 # ----------------------------------------------------------------------------------
+#
+# MISCELLANEOUS
+#
+# If the 'do_not_lookup_enet_and_ip_addresses' statement is specified,
+# the program will not try to look up the ethernet address of the
+# network interface specified on the commandline.  (That in turn, may also require
+# the program to look up the IP address of that network interface.)
+# Specifying this can allow the program to run on some platforms and interfaces
+# where one of those lookups would fail.
+#
+# If specified, both ether_src and chaddr must also be specified.
+#
+# do_not_lookup_enet_and_ip_addresses
 

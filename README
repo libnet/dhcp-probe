@@ -9,18 +9,18 @@ This software was created by the Network Systems Group at Princeton University's
 Office of Information Technology, networking at princeton dot edu.
 It was written by Irwin Tillman.
 
-It is available from: http://www.net.princeton.edu/software/dhcp_probe/
+It is available from: https://www.net.princeton.edu/software/dhcp_probe/
 
-This version runs on Solaris 9 on SPARC, compiled with gcc. 
+This version runs on Solaris 10 on SPARC, compiled with gcc. 
 
 This version supports only Ethernet interfaces.
 
 dhcp_probe is intended for use by a network administrator.  Before running 
 dhcp_probe on any network other than one for which you are responsible,
 contact that network's administrator to learn if it is acceptable for you
-to run this software on that network.  Running this software may violate
-on a network where you don't have permission to do so may violate that
-network's acceptable use policy.
+to run this software on that network.  Running this software on a network
+where you don't have permission to do so may violate that network's acceptable 
+use policy.
 
 It was intended for our use at Princeton University, so was written
 to operate on the platform(s) we use, with the features we need.  

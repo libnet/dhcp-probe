@@ -17,6 +17,7 @@ network's acceptable use policy.
 ---
 
 1. Obtain and install libpcap, the packet capture library.
+Version 0.8.1 or later is required.
 It is available from http://www.tcpdump.org
 
 More information about which versions of libpcap the
@@ -36,7 +37,7 @@ when you run 'configure' below, remember to specify the
 --
 
 2. Obtain and install libnet 1.1.x, the packet writing library.
-It is available from http://www.packetfactory.net/libnet
+It is available from http://packetfactory.openwall.net/projects/libnet/index.html
 
 The current version of this program uses the libnet 1.1.x API.  
 It does not support the libnet 1.0.x API.  (The last version of 
@@ -56,12 +57,10 @@ and linker will search.  If you've installed it elsewhere,
 when you run 'configure' below, remember to specify the
 --with-libnet=DIR option.  
 
-Additionally, you will likely need to modify libnet to add a function 
+Additionally, if you are using libnet older than version 1.3,
+you likely need to modify libnet to add a function 
 that we need to use.  This function is not present in libnet 1.1.x 
-(at least through version 1.1.2.1); you will need to patch libnet.  If you 
-are using a newer version of libnet 1.1.x, you will need to examine libnet to see 
-if the libnet_cq_end_loop() function is present.  If it not present, you will 
-need patch libnet.)
+until version 1.3, so you will need to patch libnet.  
 
 In the libnet source directory, edit ./src/libnet_cq.c to add the following 
 at the end:
@@ -85,7 +84,21 @@ to add the following at the end:
 u_int32_t 
 libnet_cq_end_loop();
 
+
+Additionally, if you are using libnet version up through version 1.2rc3,
+you should modify libnet to fix a bug that we would otherwise trigger
+when handling SIGHUP.  (This bug fix was commited after libnet 1.2rc3,
+so is expected to be in the next libnet release after that.)
+
+In the libnet source directory, edit ./src/libnet_cq.c to modify
+libnet_cq_destroy() to append the following two statements to the 
+end of the function:
+
+    l_cq = NULL;
+    memset(&l_cqd, 0, sizeof(l_cqd));
+
 You will need to rebuild and install libnet to incorporate these changes.
+
 
 ---
 
@@ -155,7 +168,20 @@ debugging.  Specify the name of the interface on which to run, e.g. 'hme0'.
 
 ---
 
-9. Arrange to have the program started automatically by root when your host starts.  
+9. Verify that the probe packets transmitted by dhcp_probe are truly reaching
+the network.  Do so by performing packet capture from another device on 
+the network.
+
+Do not skip this step, as it may help you discover whether some problem
+is silently causing the packets to never reach the network.  
+
+Do not rely on packet capture performed from the device running dhcp_probe,
+as such capture will likely see the outgoing packets on their way to the 
+network interface, rather than the actual packets on the network.
+
+---
+
+10. Arrange to have the program started automatically by root when your host starts.  
 Some sample startup scripts are in the extras directory.
 
 Never specify the -f flag when starting the daemon from a startup script;
@@ -172,7 +198,7 @@ this prevents syslog from being used.
 
 ---
 
-10. If you want to capture packets received from unknown servers, add the -o
+11. If you want to capture packets received from unknown servers, add the -o
 option when starting up, to specify a capture file.  Be sure to specify 
 a directory for the capture file that no one may write to except root;
 see the dhcp_probe(8) man page for details.
@@ -183,7 +209,7 @@ this file before starting the program.
 
 ---
 
-11. Any additional tools you may find useful can be found in the 'extras' directory.
+12. Any additional tools you may find useful can be found in the 'extras' directory.
 For example, extras/dhcp_probe_notify2 is a sample notification script that
 may be called via the 'alert_program_name2' configuration file statement.
 There are some sample startup scripts in that directory as well.

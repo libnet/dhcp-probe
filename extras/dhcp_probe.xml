@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
+<!--
+	$Header: /usr/local/src/dhcp_probe-latest/extras/RCS/dhcp_probe.xml,v 1.1 2011/12/14 20:28:36 root Exp root $
+
+	This is a Solaris SMF manifest for dhcp_probe.
+
+-->
+
+<service_bundle type='manifest' name='site-application-dhcp_probe'>
+
+<service
+	name='site/application/dhcp_probe'
+	type='service'
+	version='1'>
+
+	<!-- There is no default instance.  
+		You must create an explicit instance below for each interface in which you wish to run.
+	-->
+
+	<dependency
+		name='multi-user-server'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri value='svc:/milestone/multi-user-server' />
+	</dependency>
+
+	<!-- Define the default exec_methods which each instance will inherit. -->
+	<exec_method
+   		type='method'
+		name='start'
+		exec='/lib/svc/method/site-application-dhcp_probe -v -i %i -r -Q %{vlan_tag} start'
+		timeout_seconds='60'>
+	</exec_method>
+
+	<exec_method
+       	type='method'
+		name='stop'
+		exec='/lib/svc/method/site-application-dhcp_probe -v -i %i stop %{restarter/contract}'
+		timeout_seconds='60'>
+	</exec_method>
+
+	<property_group name='application' type='application'>
+		<!-- Set default value for 'vlan_tag' to be the special token 'none'.
+		     That value tells the method script to not pass any -Q option to the program.
+		     To pass a '-Q value' option to the program, override the vlan_tag property value within an instance definition.
+		-->
+		<propval name='vlan_tag' type='astring' value='none' />
+	</property_group>
+
+	<!-- 
+		For each instance of the service you wish to run (each daemon running on an interface, for example),
+		you must create an explicit instance below.
+
+		By convention, name each instance based on the interface name it is to run on.
+		This allows the exec_methods we inherit to reference the instance name ("%i") in order
+		to pass it to the method script as the interface name.
+		
+		To cause the instance to use a '-Q value', override the default vlan_tag property to have the desired value.
+
+		If you need to create an instance which doesn't follow this naming convention,
+		or which needs to call the method scripts with options/arguments other than the defaults
+		specified above, entirely override the default start (and/or stop) exec_methods within that instance definition.
+	-->
+
+	<!-- An example of an instance to run on interface 'bge0' that does not use a '-Q' value -->
+	<instance name='bge0' enabled='false' />
+
+	<!-- An example of an instance to run on interface 'ce8000 that uses a '-Q 8' value -->
+	<instance name='ce8000' enabled='false' >
+		<property_group name='application' type='application'>
+			<propval name='vlan_tag' type='astring' value='8' />
+		</property_group>
+	</instance>
+
+	<!-- An example of an instance to run on interface 'nxge3000004' that does not use a '-Q' value -->
+	<instance name='nxge3000004' enabled='false' />
+
+
+
+	<template>
+		<common_name>
+			<loctext xml:lang='C'>
+			dhcp_probe
+			</loctext>
+		</common_name>
+
+		<documentation>
+			<manpage
+				title='dhcp_probe'
+				section='8'
+				manpath='/usr/local/man' />
+		</documentation>
+
+
+	</template>
+
+</service>
+
+</service_bundle>

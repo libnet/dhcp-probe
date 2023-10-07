@@ -7,7 +7,7 @@
 	only answer a selected set of clients will not be discovered.
 */
 
-/* Copyright (c) 2000-2008, The Trustees of Princeton University, All Rights Reserved. */
+/* Copyright (c) 2000-2021, The Trustees of Princeton University, All Rights Reserved. */
 
 
 #ifdef HAVE_CONFIG_H
@@ -28,7 +28,7 @@
 
 #ifndef lint
 static const char rcsid[] = "dhcp_probe version " VERSION;
-static const char copyright[] = "Copyright 2000-2008, The Trustees of Princeton University.  All rights reserved.";
+static const char copyright[] = "Copyright 2000-2021, The Trustees of Princeton University.  All rights reserved.";
 static const char contact[] = "networking at princeton dot edu";
 #endif
 
@@ -58,7 +58,8 @@ int sockfd;
 volatile sig_atomic_t reread_config_file; /* for signal handler */
 volatile sig_atomic_t reopen_log_file; /* for signal handler */
 volatile sig_atomic_t reopen_capture_file; /* for signal handler */
-volatile sig_atomic_t quit_requested; /* for signal requested */
+volatile sig_atomic_t quit_requested; /* for signal handler */
+volatile sig_atomic_t alarm_fired; /* for signal handler */
 
 pcap_t *pd = NULL;					/* libpcap - packet capture descriptor used for actual packet capture */
 pcap_t *pd_template = NULL;			/* libpcap - packet capture descriptor just used as template */
@@ -78,28 +79,23 @@ int
 main(int argc, char **argv)
 {
 	int c, errflag=0;
-	struct in_addr my_ipaddr;
 	extern char *optarg;
 	extern int optind, opterr, optopt;
 	struct sigaction sa;
 	FILE *pid_fp;
 	char *cwd = CWD;
-	int i;
 
 	int write_packet_len;
 	int bytes_written;
 
 	unsigned int time_to_sleep;
 	sigset_t new_sigset, old_sigset;
+	int receive_and_process_responses_rc;
 
 	/* for libpcap */
-	bpf_u_int32 netnumber,  netmask;
 	struct bpf_program bpf_code;
 	int linktype;
 	char pcap_errbuf[PCAP_ERRBUF_SIZE], pcap_errbuf2[PCAP_ERRBUF_SIZE];
-
-	/* for libnet */
-	char libnet_errbuf[LIBNET_ERRBUF_SIZE];
 
 	/* get progname = last component of argv[0] */
 	prog = strrchr(argv[0], '/');
@@ -265,6 +261,8 @@ main(int argc, char **argv)
 	reread_config_file = 0; /* set by signal handler */
 	reopen_log_file = 0; /* set by signal handler */
 	reopen_capture_file = 0; /* set by signal handler */
+	quit_requested = 0;
+	alarm_fired = 0;
 	
 	ifname = strdup(argv[optind]); /* interface name is a required final argument */
 
@@ -274,37 +272,45 @@ main(int argc, char **argv)
 		my_exit(1, 1, 1);
 	}
 
-	/* lookup netnumber and netmask for specified interface */
-	if (pcap_lookupnet(ifname, &netnumber, &netmask, pcap_errbuf) < 0) {
-		report(LOG_ERR, "%s: bad interface '%s': %s", prog, ifname, pcap_errbuf);
-		my_exit(1, 1, 1);
-	}
+	if (GetDo_not_lookup_enet_and_ip_addresses()) {
+		/* Do not lookup Ethernet address and IP address for the named interface.
+		   Instead, use ether_src explicitly specified in config file.
+		*/
 
-	/* We need to know the Ethernet address for the named interface, but don't have a direct
-	   way to look that up.
-	   So we go the roundabout route of looking up the (first) IP address associated with that interface,
-	   then looking in our ARP cache for this IP address to see the associated ethernet address. */
+		/* read_configfile() guarantees that when GetDo_not_lookup_enet_and_ip_addresses() is true,
+		   ether_src was specified in the config file, so GetEther_src() will return that value.
+		*/
+		bcopy(GetEther_src(), &my_eaddr, sizeof(my_eaddr));
 
-	/* lookup IP address for specified interface */
-	if (get_myipaddr(sockfd, ifname, &my_ipaddr) < 0) {
-		report(LOG_ERR, "couldn't determine IP addr for interface %s", ifname);
-		my_exit(1, 1, 1);
-	}
+	} else {
+		struct in_addr my_ipaddr;
 
-	/* lookup ethernet address for specified IP address */
-	/* note that my_eaddr must be init'd before calling GetChaddr() */
-	if (get_myeaddr(sockfd, &my_ipaddr, &my_eaddr, ifname) < 0) {
-		report(LOG_ERR, "couldn't determine my ethernet addr for my IP address %s", inet_ntoa(my_ipaddr));
-		my_exit(1, 1, 1);
+		/* We need to know the Ethernet address for the named interface, but don't have a direct
+	   	way to look that up.
+	   	So we go the roundabout route of looking up the (first) IP address associated with that interface,
+	   	then looking in our ARP cache for this IP address to see the associated ethernet address. */
+	
+		/* lookup IP address for specified interface */
+		if (get_myipaddr(sockfd, ifname, &my_ipaddr) < 0) {
+			report(LOG_ERR, "couldn't determine IP addr for interface %s", ifname);
+			my_exit(1, 1, 1);
+		}
+	
+		/* lookup ethernet address for specified IP address */
+		/* note that my_eaddr must be init'd before calling GetChaddr() */
+		if (get_myeaddr(sockfd, &my_ipaddr, &my_eaddr, ifname) < 0) {
+			report(LOG_ERR, "couldn't determine my ethernet addr for my IP address %s", inet_ntoa(my_ipaddr));
+			my_exit(1, 1, 1);
+		}
 	}
 
 	if (debug > 0) {
 		if (use_8021q) {
-			report(LOG_INFO, "using interface %s, 802.1Q VLAN ID %d (IP address %s, hardware address %s)", 
-				ifname, vlan_id, inet_ntoa(my_ipaddr), ether_ntoa(&my_eaddr));
+			report(LOG_INFO, "using interface %s, 802.1Q VLAN ID %d, hardware address %s", 
+				ifname, vlan_id, ether_ntoa(&my_eaddr));
 		} else {
-			report(LOG_INFO, "using interface %s, no 802.1Q (IP address %s, hardware address %s)", 
-				ifname, inet_ntoa(my_ipaddr), ether_ntoa(&my_eaddr));
+			report(LOG_INFO, "using interface %s, no 802.1Q, hardware address %s", 
+				ifname, ether_ntoa(&my_eaddr));
 		}
 		if (socket_receive_timeout_feature)
 			report(LOG_INFO, "socket receive timeout feature enabled");
@@ -367,6 +373,15 @@ main(int argc, char **argv)
 	sa.sa_handler = catcher;
 	sa.sa_flags = 0;
 	if (sigaction(SIGCHLD, &sa, NULL) < 0) {
+		report(LOG_ERR, "sigaction: %s", get_errmsg());
+		my_exit(1, 1, 1);
+	}
+
+	/* install SIGALRM handler to handle timer expirations. */
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = catcher;
+	sa.sa_flags = 0;
+	if (sigaction(SIGALRM, &sa, NULL) < 0) {
 		report(LOG_ERR, "sigaction: %s", get_errmsg());
 		my_exit(1, 1, 1);
 	}
@@ -479,7 +494,7 @@ main(int argc, char **argv)
 
 		for (l = libnet_cq_head(); libnet_cq_last(); l = libnet_cq_next()) { /* write one flavor packet and listen for answers */
 
-			int pcap_rc;
+			int packets_recv;
 			int pcap_open_retries;
 
 			/* We set up for packet capture BEFORE writing our packet, to minimize the delay
@@ -522,11 +537,36 @@ main(int argc, char **argv)
 			/* make sure this interface is ethernet */
 			linktype = pcap_datalink(pd);
 			if (linktype != DLT_EN10MB) {
+				/* In libpcap 0.9.8 on Solaris 9 SPARC, this only happened if you pointed us to an interface
+				   that truly had the wrong datalink type.  
+				   It was not a transient error, so we exited.
+				   However, by libpcap version 1.1.1 on Solaris 9 SPARC, this happens from time to time;
+				   pcap_datalink() returns 0, indicating DLT_NULL.  
+				   Perhaps that's a bug introduced after libpcap 0.9.8.
+				   As this seems to be a transient error, we no longer exit, but instead just log the error,
+				   and skip the rest of the current cycle.
+				   A side effect of this change is that when you DO mistakenly point dhcp_probe to
+				   a non-Ethernet interface (the error is not transient), we keep trying instead
+				   of exiting.  If a future libpcap change returns to the old behavior (where the
+				   interface type remains consistent), we should go back to the old behavior of exiting.
+				*/
+				/*
 				report(LOG_ERR, "interface %s link layer type %d not ethernet", ifname, linktype);
 				my_exit(1, 1, 1);
+				*/
+				report(LOG_ERR, "interface %s link layer type %d not ethernet, skipping rest of this probe cycle", ifname, linktype);
+				break; /* for (l) ... */
 			}
+
 			/* compile bpf filter to select just udp/ip traffic to udp port bootpc  */
-			if (pcap_compile(pd, &bpf_code, "udp dst port bootpc", 1, netmask) < 0) {
+			/* Although one would expect frames on an untagged logical network interface to arrive without any 802.1Q tag,
+			   some Ethernet drivers will deliver some frames with an 802.1Q tag in which vlan==0.
+			   This may be because the frame arrived with an 802.1Q tag in which the 802.1p priority was non-zero.
+			   To preserve that priority field, they retain the 802.1Q tag and set the vlan field to 0.
+			   As per spec, a frame received with 802.1Q tag in which vlan == 0 should be treated as an untagged frame. 
+			   So our bpf filter needs to include both untagged and tagged frames.
+			*/
+			if (pcap_compile(pd, &bpf_code, "udp dst port bootpc or (vlan and udp dst port bootpc)", 1, PCAP_NETMASK_UNKNOWN) < 0) {
 				report(LOG_ERR, "pcap_compile: %s", pcap_geterr(pd));
 				my_exit(1, 1, 1);
 			}
@@ -550,52 +590,32 @@ main(int argc, char **argv)
 					report(LOG_ERR, "libnet_write: bytes written: %d (expected %d)", bytes_written, write_packet_len);
 			}
 
-
 			/* XXX Are response packets lost if they arrive between our call (above) to libnet_write(), 
-			   and our call (below) to pcap_dispatch() ?   It's a long enough window for packets to arrive,
-			   especially if debugging is high enough that we log a message below.
+			   and our call(s) to pcap_dispatch() in receive_and_process_responses() below? 
+			   Or if they arrive between calls to pcap_dispatch() in receive_and_process_responses()?
 			*/
 
-			/* listen for all replies until the timeout specified in pcap_open_live() expires.
-			   For each reply, 'process_response' is called with ptrs to the reply packet.
-
-			   XXX If you didn't specify enough buffer space, it appears that the packets that didn't fit
-			   are silently lost; pcap_dispatch() doesn't provide any indication via a negative rc, and
-			   even pcap_stats() doesn't show these as drops, so we can't provide some indication to the
-			   user that the buffer specified is too small.
+			/* Defer any interruptions due to children.  
+			   These are possible as process_response() could fork an alert_program or alert_program2 child.
 			*/
-
-			if (debug > 10)
-				report(LOG_DEBUG, "listening for answers for %d milliseconds", GetResponse_wait_time());
-
-
-			/* XXX I often find that pcap_dispatch() returns well before the timeout specified earlier.
-			   I ensure that there's no alarm() still left over before we start, and also ensure we don't
-			   get interrupted by SIGCHLD (possible since process_response() could fork an alert_program or alert_program2 child).
-			   But we STILL often return from pcap_dispatch() too soon!
-			   April 2001: An update to the pcap(3) man page around version 0.6 (?), along with postings 
-			   on the tcpdump workers mailing list explains what's going on.  The timeout specified in 
-			   pcap_open_live() isn't a timeout in the sense one might expect.  The pcap_dispatch() call 
-			   can return sooner than expected (even immediately), or if no packets are received, might 
-			   never return at all; the behavior is platform-dependant.  I don't have a way to work
-			   around this issue; it means this program  just won't work reliably (or at all) on some
-			   platforms.
-			*/
-
-			alarm(0); /* just in case a previous alarm was still left */
-
 			sigemptyset(&new_sigset);
 			sigaddset(&new_sigset, SIGCHLD);
 			sigprocmask(SIG_BLOCK, &new_sigset, &old_sigset);  /* block SIGCHLD */
 
-			pcap_rc = pcap_dispatch(pd, -1, process_response, NULL);
+			if (debug > 10)
+				report(LOG_DEBUG, "listening for answers for %d milliseconds", GetResponse_wait_time());
+
+			packets_recv = 0;
+
+			/* Receive and process responses until specified timeout or quit is requested. */
+			if ((receive_and_process_responses_rc = receive_and_process_responses(GetResponse_wait_time() / 1000)) >= 0)
+				packets_recv = receive_and_process_responses_rc;
+			/* meaning of other return codes not presently defined */
+
+			if (debug > 10)
+				report(LOG_DEBUG, "done listening, captured %d packets", packets_recv);
 
 			sigprocmask(SIG_SETMASK, &old_sigset, NULL);  /* unblock SIGCHLD */
-
-			if (pcap_rc < 0)
-				report(LOG_ERR, "pcap_dispatch(): %s", pcap_geterr(pd));
-			else if (debug > 10)
-				report(LOG_DEBUG, "done listening, captured %d packets", pcap_rc);
 
 			/* I was hoping that perhaps pcap_stats() would return a nonzero number of packets dropped when
 			   the buffer size specified to pcap_open_live() turns out to be too small -- so we could
@@ -611,8 +631,9 @@ main(int argc, char **argv)
 
 			/* close packet capture descriptor */
 			pcap_close(pd); 
+			pd = NULL;
 
-			/* check for 'quit' request after each packet, since waiting until end of probe cycle
+			/* check for 'quit' request after sending each packet, since waiting until end of probe cycle
 			   would impose a substantial delay. */
 			if (quit_requested) { /* set by signal handler */
 				if (debug > 1)
@@ -688,6 +709,61 @@ main(int argc, char **argv)
 		pcap_close(pd_template); 
 
 	my_exit(0, 1, 1);
+
+	/* NOTREACHED */
+	exit(0); /* silence compiler warning */
+}
+
+
+int
+receive_and_process_responses(int timeout_secs)
+{
+/* Listen for all replies until the specified timeout expires, or quit is requested.
+   For each reply, 'process_response' is called with ptrs to the reply packet.
+
+   If return value is >= 0, it is the number of packets received as reported by pcap.
+   The meaning of return values < 0 is not presently defined.
+
+   XXX If you didn't specify enough buffer space, it appears that the packets that didn't fit
+   are silently lost; pcap_dispatch() doesn't provide any indication via a negative rc, and
+   even pcap_stats() doesn't show these as drops, so we can't provide some indication to the
+   user that the buffer specified is too small.
+*/
+
+	int packets_recv;
+
+	packets_recv = 0;
+
+	/* As per pcap(3), the timeout specified in pcap_open_live() may be ignored.
+	   On some platforms, pcap_dispatch() may return return sooner, or might never return.
+	   So we set our own timeout with alarm(), and call pcap_dispatch() repeatedly until our timeout expires
+	   (or we notice that quit was requested).
+
+	   XXX Setting our our alarm() may not work if libpcap() also uses the same alarm.
+	*/
+
+	alarm_fired = 0;
+	alarm(timeout_secs);
+
+	do {
+		int pcap_rc;
+
+		pcap_rc = pcap_dispatch(pd, -1, process_response, NULL);
+
+		if (pcap_rc == -2)
+			/* Returned as per request by pcap_breakloop(), prior to any packets being processed */
+			; /* not an error from our perspective */
+		else if (pcap_rc < 0)
+			report(LOG_ERR, "pcap_dispatch(): %s", pcap_geterr(pd));
+		else if (pcap_rc > 0)
+			packets_recv += pcap_rc;
+		/* else pc_rc == 0, not an error, and no need to increment packets_recv */
+
+	} while (!alarm_fired && !quit_requested);
+
+	alarm(0);
+
+	return packets_recv;
 }
 
 
@@ -700,6 +776,7 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 */
 
 	struct ether_header *ether_header; /* access ethernet header */
+	struct my_ether_vlan_header *my_ether_vlan_header; /* possibly access ethernet 802.1Q header */
 	struct ip *ip_header;				/* access ip header */
 	bpf_u_int32 ether_len;		/* bpf_u_int32 from pcap.h */
 	struct udphdr *udp_header; /* access UDP header */
@@ -711,9 +788,13 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 
 	/* fields parsed out from packet*/
 	struct ether_addr ether_dhost, ether_shost;
+	uint16_t ether_type, ether_type_inner;
+	uint16_t ether_vid;
+	size_t ether_or_vlan_header_len; 	/* = sizeof(struct ether_header) or sizeof(struct my_ether_vlan_header) depending on response packet */
 	struct in_addr ip_src, ip_dst, yiaddr;
 	/* string versions of same */
 	char ether_dhost_str[MAX_ETHER_ADDR_STR], ether_shost_str[MAX_ETHER_ADDR_STR];
+	char ether_type_str[MAX_ETHER_TYPE_STR], ether_type_inner_str[MAX_ETHER_TYPE_STR];
 	char ip_src_str[MAX_IP_ADDR_STR], ip_dst_str[MAX_IP_ADDR_STR], yiaddr_str[MAX_IP_ADDR_STR];
 	int ip_header_len_bytes;
 	int udp_len; /* XXX why does udp.h declare this as signed? */
@@ -729,7 +810,7 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 		return;
 	}
 
-	if ((ether_len < sizeof(sizeof(struct ether_header))) && (debug > 1)) {
+	if ((ether_len < sizeof(struct ether_header)) && (debug > 1)) {
 		report(LOG_WARNING, "interface %s, short packet (got %d bytes, smaller than an Ethernet header)", ifname, ether_len);
 		return;
 	}
@@ -737,23 +818,75 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 	/* we use ether_header to access the Ethernet header */
 	ether_header = (struct ether_header *) packet;
 
+    /* we may use my_ether_vlan_header to access the Ethernet 801.Q header */
+    my_ether_vlan_header = (struct my_ether_vlan_header *) packet;
+
 	/* parse fields out of ethernet header for easier access */
 	bcopy(&(ether_header->ether_dhost), &ether_dhost, sizeof(ether_dhost));
 	bcopy(&(ether_header->ether_shost), &ether_shost, sizeof(ether_shost));
+	ether_type = ntohs(ether_header->ether_type);
+
 	/* create printable versions of the fields we parsed above */
 	bcopy(ether_ntoa(&ether_dhost), &ether_dhost_str, sizeof(ether_dhost_str));
 	bcopy(ether_ntoa(&ether_shost), &ether_shost_str, sizeof(ether_shost_str));
+	snprintf(ether_type_str, sizeof(ether_type_str), "0x%4.4X", ether_type);
 
 	if (debug > 10)
-		report(LOG_DEBUG, "     interface %s, from ether %s to %s", ifname, ether_shost_str, ether_dhost_str);
+		report(LOG_DEBUG, "     interface %s, from ether %s to %s type %s", ifname, ether_shost_str, ether_dhost_str, ether_type_str);
 
-	if (ether_len < sizeof(sizeof(struct ether_header)) + sizeof(struct ip)) {
-		report(LOG_WARNING, "interface %s, ether src %s: short packet (got %d bytes, smaller than IP header in Ethernet)", ifname, ether_shost_str, ether_len);
+	if (ether_type == ETHERTYPE_IP) {
+		ether_or_vlan_header_len = sizeof(struct ether_header);
+
+	} else if (ether_type == ETHERTYPE_VLAN) {
+
+		if (ether_len < sizeof(struct my_ether_vlan_header) && (debug > 1)) {
+			report(LOG_WARNING, "interface %s, short packet from ether %s to %s type %s (got %d bytes, smaller than an Ethernet 802.1Q header)", ifname, ether_shost_str, ether_dhost_str, ether_type_str, ether_len);
+			return;
+		}
+
+		/* We're supposed to be running on an interface which delivers untagged packets to us.
+		   Ethernet driver might still deliver to us an 802.1Q-tagged packet with VLAN==0.
+		   It might do so because the packet arrived with a non-zero 802.1p priority, and the driver
+		   decided that stripping the entire 802.1Q header would lose the priority information, so it
+		   instead chose to retain the 802.1Q header but reset the VLAN ID field to 0.
+		   802.1Q spec permits use of VLAN ID 0 to mean an untagged packet.
+		   So despite running on an untagged network interface, we must still accept frames with 802.1Q tag where VLAN ID == 0.
+		*/
+		/* The lower 12 bits of the TCI are the VLAN ID. */
+		ether_vid = ntohs((my_ether_vlan_header->ether_tci & 0x1FFF));
+		if (ether_vid && (debug > 1) ) {
+			report(LOG_WARNING, "interface %s, ether src %s: non-zero 802.1Q VLAN ID %u", ether_vid);
+			return;
+		}
+
+		ether_type_inner = ntohs(my_ether_vlan_header->ether_type);
+		snprintf(ether_type_inner_str, sizeof(ether_type_inner_str), "0x%4.4X", ether_type_inner);
+
+		if ((ether_type_inner != ETHERTYPE_IP) && (debug > 1)) {
+			report(LOG_WARNING, "interface %s, ether src %s: unexpected 802.1Q inner ether_type %s", ifname, ether_shost_str, ether_type_inner_str);
+			return;
+		}
+
+		ether_or_vlan_header_len = sizeof(struct my_ether_vlan_header);
+
+	} else {
+		if (debug > 1) {
+			report(LOG_WARNING, "interface %s, ether src %s: unexpected ether_type %s", ifname, ether_shost_str, ether_type_str);
+		}
+		return;
+	}
+
+	/* If the frame is untagged, ether_or_vlan_header_len is now set to the length of the ethernet header.
+	   Else if the frame is tagged, ether_or_vlan_header_len is now set to the length of the ethernet VLAN header.
+	*/
+
+	if (ether_len < ether_or_vlan_header_len + sizeof(struct ip)) {
+		report(LOG_WARNING, "interface %s, ether src %s type %s: short packet (got %d bytes, smaller than IP header in Ethernet)", ifname, ether_shost_str, ether_type_str, ether_len);
 		return;
 	}	
 
 	/* we use ip_header to access the IP header */
-	ip_header = (struct ip *) (packet + sizeof(struct ether_header));
+	ip_header = (struct ip *) (packet + ether_or_vlan_header_len);
 
 	/* parse fields out of ip header for easier access */
 	bcopy(&(ip_header->ip_src), &ip_src, sizeof(ip_header->ip_src));
@@ -768,15 +901,15 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 	ip_header_len_bytes = ip_header->ip_hl << 2;
 
 	/* Repeat the packet size check (through IP header), but taking into account ip_header_len_bytes */
-	if (ether_len < sizeof(sizeof(struct ether_header)) + ip_header_len_bytes) {
+	if (ether_len < ether_or_vlan_header_len + ip_header_len_bytes) {
 		report(LOG_WARNING, "interface %s, short packet (got %d bytes, smaller than IP header in Ethernet)", ifname, ether_len);
 		return;
 	}	
 
 	/* we use udp_header to access the UDP header */
-	udp_header = (struct udphdr *) (packet + sizeof(struct ether_header) + ip_header_len_bytes);
+	udp_header = (struct udphdr *) (packet + ether_or_vlan_header_len + ip_header_len_bytes);
 
-	if (ether_len <  sizeof(sizeof(struct ether_header)) + ip_header_len_bytes + sizeof(struct udphdr)) {
+	if (ether_len <  ether_or_vlan_header_len + ip_header_len_bytes + sizeof(struct udphdr)) {
 		report(LOG_WARNING, "interface %s ether src %s: short packet (got %d bytes, smaller than UDP/IP header in Ethernet)", ifname, ether_shost_str, ether_len);
 		return;
 	}	
@@ -800,7 +933,7 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 	}
 
 	/* we use bootp_pkt to access the bootp/dhcp packet */
-	bootp_pkt = (struct bootp *) (packet + sizeof(struct ether_header) + ip_header_len_bytes + sizeof(struct udphdr));
+	bootp_pkt = (struct bootp *) (packet + ether_or_vlan_header_len + ip_header_len_bytes + sizeof(struct udphdr));
 
 	/* Make sure the packet is in response to our query, otherwise ignore it.
 	   Our query had bootp_htype=HTYPE_ETHER, bootp_hlen=HLEN_ETHER, and bootp_chaddr=GetChaddr().
@@ -987,8 +1120,6 @@ reconfigure(const int write_packet_len)
    Must not be called until after initial configuration is complete.
 */
    
-	int i;
-
 	if (! read_configfile(config_file)) {
 		my_exit(1, 1, 1);
 	}
@@ -1048,8 +1179,34 @@ catcher(int sig)
 {
 /*	Signal catcher. */
 
+	/* If the signal arrives while we are in pcap_dispatch(), when we return from the
+	   signal handler, pcap_dispatch() normally will resume reading packets.
+	   That's the behavior we want for most signals, but not the following:
+
+	   * When the signal requests that we quit, 
+	   we don't want pcap_dispatch() to resume reading packets.
+	   In an environment in which pcap_dispatch() receives no packets matching
+	   the specified pcap filter, pcap_dispatch() might continue reading packets forever,
+	   preventing us from quitting.
+
+	   * When the signal is an alarm to indicate a timer has expired, 
+	   we don't want pcap_dispatch() to resume reading packets.
+
+	   So in those situations, we also call pcap_breakloop() (when pd != NULL)
+	   to specify that pcap_dispatch() should instead return.
+	*/
+
+
 	if ((sig == SIGINT) || (sig == SIGTERM) || (sig == SIGQUIT))  { /* quit gracefully */
 		quit_requested = 1;
+		if (pd)
+			pcap_breakloop(pd);
+		return;
+
+	} else if (sig ==  SIGALRM) { /* timer */
+		alarm_fired = 1;
+		if (pd)
+			pcap_breakloop(pd);
 		return;
 
 	} else if (sig == SIGHUP) { /* re-read config file */

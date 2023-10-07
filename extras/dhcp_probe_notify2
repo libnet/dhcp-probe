@@ -38,8 +38,9 @@ use strict;
 my $SYSLOG_FACILITY="daemon";                   # name of facility to use if syslogging (e.g. 'daemon')
 my $SYSLOG_OPT = 'pid,cons';                    # comma-separated syslog options to use if syslogging (e.g. 'pid,cons') , ignored if not syslogging
 
-use vars qw($VERBOSE);
+use vars qw($VERBOSE $DO_TRIM_HOSTNAME);
 $VERBOSE = 1;	# set to true to produce more verbose messages
+$DO_TRIM_HOSTNAME = 1;				# set to true to trim hostname to remove suffix
 
 # We may send one piece of mail this way, subject to frequency throttling.
 # Use this set of definitions for a piece of email that is delivered as regular email (not a page).
@@ -77,7 +78,6 @@ openlog($prog, $SYSLOG_OPT, $SYSLOG_FACILITY);
 # if we are passed an unrecognized option.  
 # We must silently ignore unrecognized options to be forward compatible with enhancements to dhcp_probe.
 use vars qw($opt_i $opt_I $opt_m $opt_p $opt_y);
-# &getopt('p:i:I:m:y:');
 &getopt('piImy');
 
 # Required options
@@ -115,6 +115,10 @@ unless ($ether_src)  {
 # Miscellaneous Initialization
 
 my $hostname = hostname();
+
+if ($DO_TRIM_HOSTNAME) {
+	$hostname =~ s/\..*$//;
+}
 
 my ($seconds, $microseconds) = gettimeofday;    # from Time::HiRes on CPAN
 my $timestamp = scalar(localtime($seconds));
@@ -201,7 +205,7 @@ if ($THROTTLE_PAGE_CMD) {
 	}
 
 	print THROTTLE_PAGE "rogue DHCP server IP=$ip_src MAC=$ether_src seen via $hostname interface $ifname\n";
-	print THROTTLE_PAGE "This means there *is* a rogue BootP/DHCP server operating.\n" if $VERBOSE;
+	print THROTTLE_PAGE "There *is* a rogue DHCP server.\n" if $VERBOSE;
 	if ($yiaddr) {
 		print THROTTLE_PAGE
 			"Rogue server distributed yiaddr=$yiaddr, a special concern.\n"; 

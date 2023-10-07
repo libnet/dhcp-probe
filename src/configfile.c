@@ -4,7 +4,7 @@
 	Do not call any accessor function before read_configfile().
 */
 
-/* Copyright (c) 2000-2008, The Trustees of Princeton University, All Rights Reserved. */
+/* Copyright (c) 2000-2021, The Trustees of Princeton University, All Rights Reserved. */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -20,11 +20,13 @@
 
 /* chaddr to use for bootp header 'chaddr' and to construct ClientID option */
 /* optionally specified by user; if unspecified, GetChaddr() returns my_eaddr */
+/* Is required if do_not_lookup_enet_and_ip_addresses is also specifed. */
 struct ether_addr chaddr; 
 int is_chaddr_specified; /* flag */
 
 /* ether_addr to use for ethernet frame src */
 /* optionally specified by user; if unspecified, GetEther_src() returns my_eaddr */
+/* Is required if do_not_lookup_enet_and_ip_addresses is also specifed. */
 struct ether_addr ether_src; 
 int is_ether_src_specified; /* flag */
 
@@ -55,7 +57,7 @@ int num_legal_server_ethersrcs;
 
 /* parallel arrays of "lease networks of concern" (address & mask), and number of elems in arrays.
    We also precompute a parallel array of 'addr & mask' to save computing these repeatedly later.
-/* If a response already identified as being from a rogue DHCP server contains a yiaddr field field
+   If a response already identified as being from a rogue DHCP server contains a yiaddr field field
    that falls into one of these networks, it is reported as a matter of special concern.
 */
 struct in_addr lease_networks_of_concern_addr[MAX_LEASE_NETWORKS_OF_CONCERN];
@@ -67,6 +69,11 @@ int num_lease_networks_of_concern;
 char *alert_program_name = NULL; /* old style alert program */
 char *alert_program_name2 = NULL; /* newer style alert program */
 
+/* Flag indicating whether we should lookup interface's IP address
+   and Ethernet address.  If true, config file must specify both ether_src and chaddr.
+*/
+int do_not_lookup_enet_and_ip_addresses;
+
 
 int
 read_configfile(const char *fname)
@@ -74,7 +81,10 @@ read_configfile(const char *fname)
 /* Read the config file, initializing appropriate data structures from it.
    Return 1 on success, 0 on fatal error.
    (A syntax/semantic error inside the file is not a fatal error.
-   Fatal errors include: being unable to open the file.
+   Fatal errors include:
+		being unable to open the file
+		do_not_lookup_enet_and_ip_addresses is specified and a valid ether_src is not specified
+		do_not_lookup_enet_and_ip_addresses is specified and a valid chaddr is not specified
 
    We assume the caller has already init'd global my_eaddr.
 */
@@ -87,8 +97,10 @@ read_configfile(const char *fname)
 	unsigned int tmpuint;
 	struct ether_addr *enet;
 	struct in_addr inaddr, inaddr2;
+	int is_fatal_error;
 	
 	/* init all values to defaults */
+	is_fatal_error = 0;
 	is_chaddr_specified = 0;
 	/* chaddr can be left uninit'd, since we only use it when is_chaddr_specified is set */
 	is_ether_src_specified = 0;
@@ -108,6 +120,7 @@ read_configfile(const char *fname)
 		free(alert_program_name2);
 		alert_program_name2 = NULL;
 	}
+	do_not_lookup_enet_and_ip_addresses = 0;
 
 	if (debug > 1)
 		report(LOG_INFO, "read_configfile: starting");
@@ -403,6 +416,8 @@ read_configfile(const char *fname)
 			if (debug > 2)
 				report(LOG_DEBUG, "read_configfile: alert_program_name2 %s", alert_program_name2);
 
+		} else if (! strcasecmp(str1, "do_not_lookup_enet_and_ip_addresses")) {
+				do_not_lookup_enet_and_ip_addresses = 1;
 
 		} else {
 			report(LOG_ERR, "read_configfile: line %d, unrecognized token: %s", line, str1);
@@ -412,10 +427,34 @@ read_configfile(const char *fname)
 
 	fclose(fp);
 
+	if (do_not_lookup_enet_and_ip_addresses) {
+		/* It is the responsibility of read_configfile() to guarantee that when GetDo_not_lookup_enet_and_ip_addresses() is true,
+		   ether_src was specified in the config file, so GetEther_src() will return that value.
+		   We enforce the guarantee here.
+		*/
+		if (!is_ether_src_specified) {
+			report(LOG_ERR, "read_configfile: do_not_lookup_enet_and_ip_addresses is specified but no valid ether_src is specified");
+			is_fatal_error = 1;
+		}
+
+		/* It is the responsibility of read_configfile() to guarantee that when GetDo_not_lookup_enet_and_ip_addresses() is true,
+		   chaddr was specified in the config file, so GetChaddr() will return that value.
+		   We enforce the guarantee here.
+		*/
+		if (!is_chaddr_specified) {
+			report(LOG_ERR, "read_configfile: do_not_lookup_enet_and_ip_addresses is specified but no valid chaddr is specified");
+			is_fatal_error = 1;
+		}
+	}
+
 	if (debug > 1)
 		report(LOG_INFO, "read_configfile: done");
 
-	return(1); /* success */
+	if (is_fatal_error) {
+		return(0); /* fatal error */
+	} else {
+		return(1); /* success */
+	}
 
 }
 
@@ -647,5 +686,12 @@ GetAlert_program_name2(void)
 	}
 
     return alert_program_name2_copy;
+}
+
+int
+GetDo_not_lookup_enet_and_ip_addresses(void)
+{
+/* Return value of do_not_lookup_enet_and_ip_addresses. */
+	return do_not_lookup_enet_and_ip_addresses;
 }
 

@@ -166,5 +166,24 @@ extern int ether_ntohost (char *hostname, const struct ether_addr *e);
 extern int ether_hostton (const char *hostname, struct ether_addr *e);
 #endif
 
+#ifndef ETHERTYPE_IP
+#define ETHERTYPE_IP        (0x0800)       /* IP protocol */
+#endif
+
+#ifndef ETHERTYPE_VLAN
+#define ETHERTYPE_VLAN      (0x8100)      /* IEEE 802.1Q VLAN */
+#endif
+
+/* Definition of 802.1Q VLAN header fields are vary widely among platforms, 
+   and often are entirely missing.
+   We'll have to rely on our own definition.
+*/
+typedef struct my_ether_vlan_header {
+	struct ether_addr	ether_dhost;
+	struct ether_addr	ether_shost;
+	uint16_t			ether_tpid; /* == 0x8100 == ETHERTYPE_VLAN */
+	uint16_t			ether_tci;  /* user_pri, cfi, vid */
+	uint16_t			ether_type;
+} my_ether_vlan_header_t;
 
 #endif /* not DEFS_H */

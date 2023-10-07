@@ -33,3 +33,7 @@ via compile-time definitions.
 
 Figure out how to eliminate the compiler warning in bootp.c
 
+libpcap detection/configuration has not yet been updated to take
+advantage of pcap-config introduced in libpcap 1.0.0.
+
+Add appropriate libdirs to RUNPATH passed to linker.

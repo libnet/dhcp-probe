@@ -101,27 +101,54 @@ get_myipaddr(int sockfd, char *ifname, struct in_addr *my_ipaddr)
 													/* increment of ptr is done separately below */
 		ifr = (struct ifreq *) ptr;
 	
-		/* determine 'len', the length of the current ifreq, so we can increment over it when done */
+		/* XXX As each struct ifreq in the buffer lacks a 'next' pointer or a 'length' member,
+		   and the size of each struct ifreq may vary, determining the length of the current struct ifreq
+		   (so we know how much to increment ptr to reach the next struct ifreq) is problematic.
+
+		   We should avoid using 'sizeof (struct ifreq)'; in some cases on some implementations, that's too small.
+
+		   Our approach to compute 'len' is far from perfect; it can go awry.
+		*/
+
+		/* Assume that the struct ifreq contains a struct ifr->ifr_name member, and that this
+		   member has a fixed length known at compile-time.
+
+		   Assume that all the other element(s) of struct ifreq will add up to the size of
+		   some sort of socket address structure.
+		   (The reason for guessing this is that typically a struct ifreq contains just one member other than
+		   the ifr->ifr_name member, and that member is declared as a union of various things, the largest
+		   of which is probably a struct sockaddr_in6 or struct sockaddr.)
+
+		   Assume that the struct ifreq contains no padding.
+		*/
 #ifdef STRUCT_SOCKADDR_HAS_SA_LEN
-		len = max(sizeof(struct sockaddr), ifr->ifr_addr.sa_len);
+		len = max(ifr->ifr_addr.sa_len, sizeof(struct sockaddr)) + sizeof(ifr->ifr_name);
+
 #else
 		switch (ifr->ifr_addr.sa_family) {
 #ifdef AF_INET6
 			case AF_INET6:
-				len = sizeof(struct sockaddr_in6);
+				len = sizeof(struct sockaddr_in6) + sizeof(ifr->ifr_name);
 				break;
 #endif /* AF_INET6 */
 			case AF_INET:
 			default:
-			len = sizeof(struct sockaddr);
+				len = sizeof(struct sockaddr) + sizeof(ifr->ifr_name);
 		}
 #endif /* not STRUCT_SOCKADDR_HAS_SA_LEN */
 
-		/* increment ptr to next interface for next time through the loop */
-		ptr += sizeof(ifr->ifr_name) + len;
+		/* If 'len' came out smaller than the size of a struct ifreq, it's likely incorrect;
+		   increase it to the struct ifreq size, and hope for the best. */
+		len = max(len, sizeof(*ifr));
+			
+		/* Increment ptr to next struct ifreq for next time through the loop.
+		   This can go badly wrong, as noted above. */
+		ptr += len;
 
-		if (strcmp(ifname, ifr->ifr_name) != 0 )  /* is this the interface we're looking for? */
-			continue;
+		if ((strlen(ifname) != strlen(ifr->ifr_name)) || strcmp(ifname, ifr->ifr_name)) {
+			/* This is NOT the interface we're looking for. */
+			continue; /* for ptr ... */
+		}
 
 		/* this IS the interface we're looking for */
 

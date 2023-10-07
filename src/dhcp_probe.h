@@ -45,6 +45,7 @@ extern enum dhcp_flavor_t packet_flavors[];
 
 /* forward decls for functions */
 void process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *packet);
+int receive_and_process_responses(int timeout_secs);
 void set_pcap_timeout(pcap_t *pc);
 void reconfigure(const int write_packet_len);
 void catcher(int signal);
@@ -56,6 +57,7 @@ void close_and_reopen_capture_file(void);
 
 
 enum { MAX_ETHER_ADDR_STR = 18 };
+enum { MAX_ETHER_TYPE_STR = 7 };
 enum { MAX_IP_ADDR_STR = 18 };
 
 #define VLAN_ID_MIN 0

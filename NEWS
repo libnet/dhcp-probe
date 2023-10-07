@@ -3,6 +3,60 @@ dhcp_probe NEWS - history of user-visible changes.
 
 See the file ChangeLog for the details of all changes.
 
+Version 1.3.1 - January 18 2021, by Irwin Tillman
+
+* When the interface link type is not Ethernet, we used to
+  treat that as a permanent error, and exited.  We now
+  treat it as a transient error, just logging it and skipping
+  the rest of the current probe cycle.
+ 
+  This was prompted by a change (bug ?) that appeared 
+  in libpcap sometime after version 0.9.8. The behavior is present
+  by libpcap version 1.1.1.  It remains (at least) through version 1.4.0.
+  On occassion, pcap_datalink() returns DLT_NULL instead of DLT_EN10MB 
+  when pointed to an Ethernet interface.
+
+* The new 'do_not_lookup_enet_and_ip_addresses' configuration file statement
+  may be used to specify that the program should not try to look up
+  the network interface's Ethernet address (and IP address if necessary).
+
+  This may allow the program to operate on network interfaces and platforms
+  where those lookup operations would not work.  It may also permit
+  operation on a network interface which has no assigned IP address.
+
+  Specifying 'do_not_lookup_enet_and_ip_addresses' requires that
+  the 'ether_src' and 'chaddr' statements also appear in the configuration file.
+
+* Previously if a response frame arrived with ether_type == ETHERTYPE_VLAN
+  (802.1Q tagging), we ignored the frame.  We did not expect to receive such
+  frames because we expect to operate on an untagged network interface.
+  (Possibly a logical network interface for which the OS has already stripped 
+  the incoming 802.1Q tags.)
+
+  Now we do not ignore the frame if its VLAN ID == 0.  802.1Q says such
+  frames should be treated like untagged frames.  Some ethernet drivers may
+  deliver such frames even to an "untagged" logical network interface.
+  They might choose to do so, for example, when the incoming frame contained
+  a non-zero 802.1p priority.  To avoid discarding the priority when delivering
+  the frame to an untagged logical network interface, the driver
+  might choose to retain the 802.1Q header, changing the VLAN ID to 0.
+
+* Previously if a request to quit arrived while we were waiting for packets in 
+  response to a probe packet, the program could postpone quitting forever
+  in environments in which no DHCP servers responded to the probe packet.
+
+* Previously the response_wait_time was not respected on those platforms
+  where the read timeout used by pcap is not supported.  After sending a probe
+  packet, we might wait less than response_wait_time.  We might see only
+  the first response packet.  Now we try to wait the entire response_wait_time.
+
+* The messages sent by dhcp_probe_notify2 via the THROTTLE_PAGE_CMD
+  are slightly terser to reduce the likelihood they will be split or truncated
+  by SMS providers which split/truncate messages at fewer than 160 characters.
+
+* If you apply the new libnet_cq_destroy() patch to libnet (or run a version
+  newer than libnet 1.2rc3), this fixes a crash when we handle SIGHUP.
+
 
 Version 1.3.0 - March 9 2009, by Irwin Tillman
 

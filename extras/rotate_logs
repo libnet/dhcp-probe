@@ -1,0 +1,197 @@
+#!/usr/local/bin/perl5 -s
+
+# $Header: /usr/local/src/dhcp_probe-latest/extras/RCS/rotate_logs,v 1.1 2011/12/14 20:32:21 root Exp root $
+
+# rotate_logs	[-logdir="logdirname"] [-logname="filename"] [-max="-maxlogs"] [-daily] [-nochown] 
+#				[-dailydir="dailydirname"] [-filter="filterprog"] [-compress="compressprog"] [-compressopts="compressprog options"] [-debug]
+#               [-dailyflagdir="dailyflagdirname1 dailyflagdirname2..."]
+# 	where:
+#		logdirname is name of directory containing the logfiles, defaults to /c/var/log
+#       filename is base name of logfile, defaults to syslog.listproc
+#		maxlogs is the number of old logs to keep, defaults to -8
+#			if you specify -max, remember to include the dash before the number.
+#		If you specify dailydir, that directory is used to archive old logfiles.  We copy the current logfile
+#			to $dailydir/$filename.YYMMDD, optionally run it through filterprog, then compress it.
+#			Note that we still perform the normal rotation in logdirname of the current and up to maxlogs old logs.
+#			Note that if dailydir is specified, we ignore daily.
+#   	If you specify daily (and don't specify dailydir), we don't actually rotate old files at all, (we 
+#			ignore any value for -max).  Instead, we assume today's log is named $filename.today, and we
+#			rename $filename.today to $filename.YYMMDD.
+#       When dailydir is specified, the compress program we use is /usr/bin/compress.  You can override
+#			that with compressprog.  This is ignored when dailydir isn't specified.
+#       If compression is performed, compressopts are the options passed to the compress program; default is ''.
+#		When dailydir is specified, you may specify an optional filterprog.  That filterprog will be
+#			handed a filename, and is expected to write to stdout.  The result is what gets compressed.
+#		If you specify nochown, we won't try to call chown to set the uid/gid of the new log file
+#			or a file put in dailydir.	That's useful if we're not being run by root.
+#       When dailyflagdirs is specified, it is a listof whitespace delimited directory names.
+#           (Don't use dir names with embedded whitespace.)
+#           We create an empty file in each specified directory; the filename is the same name
+#           as the file we created in dailydirname.  (If no file was created in dailydirname, 
+#           then dailyflagdirname is ignored.)  This is allow other independent programs that each needs to be alerted to new 
+#           files in dailydirname to learn about them without having to maintain their own state.
+#           Presumably each time each of those other programs sees a flag file in its dailyflagdir, it will
+#           process the corresponding file in dailydirname, then erase the flag file in dailyflagdirname.
+#           (Used a separate dailyflagdir for each of these consumer programs.)
+#		If you specify debug, we produce some diagnostic output.
+#
+#	We create a new empty logfile, copying the uid/gid/mode from the previous one (or the most-recent
+#	previous one, the case of rotation), defaulting to 0600/0/0. 
+#
+#	Typical use:
+# 		rotate_logs -logdir="/var/adm" -logname="wtmpx" -max="-12" 
+#		rotate_logs -logdir="/usr/local/etc/httpd" -logname="access_log" -daily
+#		rotate_logs -logdir="/var/local/logs" -logname="local7.log" -max="-3" \ 
+#						-dailydir="/var/local/logs/long_term" -filter="/usr/local/etc/prune-local7" \ 
+#						-compress="/usr/local/bin/gzip" -compressopts="--best --force"
+#
+#	For rotation, we rename the old files, so processes that have them open will still be able to use them.
+#	(It's up to you to figure out how to get processes that had the old logfile open to close them
+#	and re-open them (e.g. so they stop appending to the old file and start appending to the new one).)
+#	For archiving to dailydir, we copy the current log, so that's a new file.
+
+use 5.006; use 5.6.0;
+
+use File::Temp qw(tempfile); # standard starting in perl 5.6.1; else get from CPAN
+
+$TMPDIR = '/tmp';
+
+# defaults for new file if none found from old file
+$mode=0600;
+$uid=0;
+$gid=0;
+
+$compress = "/usr/bin/compress" unless defined($compress);
+$compressopts = "" unless defined($compressopts);
+$logdir = "/c/var/log" unless defined($logdir);
+$logname="syslog.listproc" unless defined($logname);
+$dailydir = "" unless defined($dailydir);
+$dailyflagdir = "" unless (defined($dailyflagdir) && defined($dailydir));
+$daily = 0 unless (defined($daily) && !$dailydir);
+$filter = "" unless defined($filter);
+$max="-8" unless defined($max);
+$nochown = 0 unless defined($nochown);
+$debug = 0 unless defined($debug);
+
+my @dailyflagdirs = ();
+if ($dailyflagdir) {
+	@dailyflagdirs = split(' ', $dailyflagdir);
+}
+
+($prog = $0) =~ s/.*\///g;
+
+File::Temp->safe_level(File::Temp::HIGH);
+
+chdir("$logdir") || die "$prog: cannot cd $logdir: $!\n";
+
+&rotate();
+
+exit(0);
+
+
+sub rotate {
+
+	$timenow=time;
+	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($timenow);
+	$year -= 100 if $year > 99;
+	$today=sprintf("%02d%02d%02d",$year, $mon+1, $mday);
+
+	if ($daily) {
+		if (-e "$logname.today") {
+			($mode, $uid, $gid) = (stat("$logname.today"))[2,4,5]; 
+			warn("rename $logname.today -> $logname.$today\n") if $debug;
+			rename("$logname.today","$logname.$today") || die "$prog: can't rename $logname.today $logname.$today: $!\n";
+		}
+		&create_file("$logname.today", $mode, $uid, $gid);
+		exit(0);
+	} 
+
+	if ($dailydir) { # we do this before rotation
+		warn("Copying today's log for archival\n") if $debug;
+		system("/bin/cp -p $logname $dailydir/$logname.today");
+	}
+
+	# rotation
+	unlink("$logname$max"); # may not exist
+	foreach ( $max .. -2 ) { # recall $max starts with a dash
+		$current = sprintf("%s%s", $logname, $_);
+		$prev = sprintf("%s%s", $logname, $_+1);
+		if (-e "$prev") {
+			($mode, $uid, $gid) = (stat("$prev"))[2,4,5]; 
+			warn("rename $prev -> $current\n") if $debug;
+			rename("$prev", "$current"); # $prev may not exist
+		}
+	}
+	if (-e "$logname") {
+		($mode, $uid, $gid) = (stat("$logname"))[2,4,5]; 
+		rename("$logname","$prev");
+	}
+	&create_file("$logname", $mode, $uid, $gid);
+
+	if ($dailydir) {
+		chdir("$dailydir") || die "$prog: can't cd $dailydir: $!\n";
+		if (-e "$logname.today") {
+			if ($filter ne "") {
+				# we don't also check (-x $filter), since $filter might not be fully-qualified
+				warn("Running $filter $logname.today -> $logname.$today\n") if $debug;
+				unlink("$logname.$today", "$logname.$today.Z"); # WHY?
+				system("/bin/date") if $debug;
+				($mode, $uid, $gid) = (stat("$logname.today"))[2,4,5]; 
+				($tmp_fh, $tmp_fn) = tempfile("${prog}.XXXXXXXXXX", DIR => $TMPDIR);
+				system("$filter $logname.today >> $tmp_fn");		# XXX we are ignoring filter's rval, pray!
+				system("/bin/cp $tmp_fn $logname.today"); # XXX we are ignoring cp's rval - pray!
+				unlink($tmp_fn);
+				(chown($uid, $gid, "$logname.today") || die "$prog: can't chown $logname.today: $!\n") unless $nochown;
+				chmod($mode, "$logname.today") || die "$prog: can't chmod $logname.today: $!\n";
+				system("/bin/date") if $debug;
+			}
+			rename("$logname.today","$logname.$today") || die "$prog: can't rename $dailydir/$logname.today $dailydir/$logname.$today: $!\n";
+			foreach my $dir (@dailyflagdirs) {
+				open(FLAGFILE, ">${dir}/${logname}.$today") || warn "$prog: can't create flag file ${dir}/${logname}.${today}: $!\n";
+				close(FLAGFILE);
+			}
+			
+			if (-x $compress) {
+				system("$compress $compressopts $logname.$today"); # note we are ignoring rval
+				# BUG: There's no guarantee that the compress program will preserve the owner/group and perms of
+				# the file.  And since we don't know what the output filename will be, we can't fix it.
+				# Fortunately, 'gzip' seems to preserve owner/group if it can.
+
+				foreach my $dir (@dailyflagdirs) {
+					# Although the flag file is empty, we still run the compress program on it,
+					# to cause the filename to be undergo the same transformation that the file in dailydir underwent.
+					# (We can't simply rename the flag file, since we don't know the filename transformation performed
+					# by the compress program.)
+					system("$compress $compressopts ${dir}/${logname}.$today"); # note we are ignoring rval
+					# BUG: There's no guarantee that the compress program will preserve the owner/group and perms of
+					# the file.  And since we don't know what the output filename will be, we can't fix it.
+					# Fortunately, 'gzip' seems to preserve owner/group if it can.
+				}
+
+			} else {
+				warn("$prog: can't find $compress - won't compress ${dailydir}/$logname.$today\n");
+			}
+		}
+	}
+
+}
+
+sub create_file {
+	# Create new empty log.  It may already exist (due to some other process writing after after
+	# we just renamed it), so first just see if we can update its times.  If that fails, try to
+	# create a new one, else die.
+	#
+	# Note that we assume that the directory in which the file is to be created is only writable
+	# by folks with the appropriate privilege; if it is writable by others, they can exploit the
+	# usual race conditions.  Now, we're always called in such a way that the directory we'll
+	# write in is the same as the directory that contained the original log file.  So you'll be
+	# safe as long as you store your log files in directories that are only writable by 
+	# folks with appropriate privs.
+
+	local($newfile, $mode, $uid, $gid) = @_;
+
+	utime($timenow, $timenow, "$newfile") || open(TMP,">>$newfile") || die "$prog: can't create $newfile: $!\n";
+	(chown($uid, $gid, "$newfile") || die "$prog: can't chown $newfile: $!\n") unless $nochown;
+	chmod($mode, "$newfile") || die "$prog: can't chmod $newfile: $!\n";
+	return 0;
+}
