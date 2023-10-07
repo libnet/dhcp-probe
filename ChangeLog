@@ -1,4 +1,24 @@
-Mon May  6 14:07:11 EDT 2002  Irwin Tillman  (irwin@princeton.edu)
+Tue Aug 24 10:52:22 EDT 2004  Irwin Tillman  (irwin at princeton dot edu)
+
+	* README, COPYING, Changelog: replace email addresses with human-parseable
+	versions, to reduce spam from simple Web-based address harvesters.
+
+	* extras/dhcp_probe_notify: add missing my_message() routine, add frequency throttling.
+
+	* extras/mail-throttled: new.
+
+	* Version number now 1.0.5.
+
+Sun Nov 17 20:55:55 EST 2002  Irwin Tillman  (irwin at princeton dot edu)
+
+	* src/dhcp_probe.c doc/dhcp_probe.8: ignore responses where bootp_chaddr != 
+	my chaddr, or bootp_htype != HTYPE_ETHER, or bootp_hlen != HLEN_ETHER.
+
+	* src/dhcp_probe.c: ignore responses where the frame length is not
+	long enough to contain the IP header with the claimed ip_hlen value,
+	a UDP header, and a minimum length BootP/DHCP payload.
+
+Mon May  6 14:07:11 EDT 2002  Irwin Tillman  (irwin at princeton dot edu)
 
 	* src/dhcp_probe.c: avoid incorrect use of cpp '##' to allow compilation 
 	in gcc 3.x.
@@ -15,38 +35,38 @@ Mon May  6 14:07:11 EDT 2002  Irwin Tillman  (irwin@princeton.edu)
 
 	* Version 1.0.4 released.
 
-Fri Feb 15 13:43:19 EST 2002  Irwin Tillman  (irwin@princeton.edu)
+Fri Feb 15 13:43:19 EST 2002  Irwin Tillman  (irwin at princeton dot edu)
 
 	* src/dhcp_probe.c: if pcap_open_live() returns a warning message
 	upon success, display the warning.
 
-Wed Aug  1 14:17:59 EDT 2001  Irwin Tillman  (irwin@princeton.edu)
+Wed Aug  1 14:17:59 EDT 2001  Irwin Tillman  (irwin at princeton dot edu)
 
 	* README doc/dhcp_probe.8: software home has moved from wwwnet.princeton.edu to
 	www.net.princeton.edu.
 
-Tue May  1 14:06:00 EDT 2001  Irwin Tillman  (irwin@princeton.edu)
+Tue May  1 14:06:00 EDT 2001  Irwin Tillman  (irwin at princeton dot edu)
 
 	* INSTALL: added a PLATFORMS section listing platforms on which
-	the program has been succesfully built and used.
+	the program has been successfully built and used.
 
 	* doc/dhcp_probe.8: remove specifics about platform versions.
 
-Wed Apr 18 18:51:23 EDT 2001  Irwin Tillman  (irwin@princeton.edu)
+Wed Apr 18 18:51:23 EDT 2001  Irwin Tillman  (irwin at princeton dot edu)
 
 	* src/dhcp_probe.c: save and restore errno.
 
 	* src/dhcp_probe.c: quit_requested, reread_config_file, reopen_log_file,
 	and reopen_capture_file should be volatile sig_atomic_t. 
 
-Mon Apr 16 11:03:29 EDT 2001  Irwin Tillman  (irwin@princeton.edu)
+Mon Apr 16 11:03:29 EDT 2001  Irwin Tillman  (irwin at princeton dot edu)
 
 	* doc/dhcp_probe.8: BUGS: On platforms where pcap(3) is unable to 
 	support the timeout argument to pcap_open_live() the program may not 
 	reliably detect responses from DHCP and BootP servers, or may not function 
 	at all.
 
-Thu Feb 15 11:10:26 EST 2001  Irwin Tillman  (irwin@princeton.edu)
+Thu Feb 15 11:10:26 EST 2001  Irwin Tillman  (irwin at princeton dot edu)
 
 	* README COPYING doc/dhcp_probe.8 doc/dhcp_probe.cf.5: product
 	is now generally available, also update legal notices.
@@ -58,7 +78,7 @@ Thu Feb 15 11:10:26 EST 2001  Irwin Tillman  (irwin@princeton.edu)
 
 	* Version 1.0.3 released.
 
-Sat Jan 27 17:35:10 EST 2001  Irwin Tillman  (irwin@princeton.edu)
+Sat Jan 27 17:35:10 EST 2001  Irwin Tillman  (irwin at princeton dot edu)
 
 	* convert to automake, reorganize from flat package into shallow package
 
@@ -72,7 +92,7 @@ Sat Jan 27 17:35:10 EST 2001  Irwin Tillman  (irwin@princeton.edu)
 
 	* config/config.guess config/config.sub: sync to current GNU versions.
 
-Sat Jan 20 16:06:39 EST 2001  Irwin Tillman  (irwin@princeton.edu)
+Sat Jan 20 16:06:39 EST 2001  Irwin Tillman  (irwin at princeton dot edu)
 
 	* inet_aton.c (inet_aton): replaced version from "UNIX Network Programming: Volume 1",
 	Second Edition, by W. Richard Stevens with version from glibc 2.1.2
@@ -90,11 +110,11 @@ Sat Jan 20 16:06:39 EST 2001  Irwin Tillman  (irwin@princeton.edu)
 
 	* defaults.h: increase MAX_LEGAL_SERVERS from 16 to 64
 
-Thu Aug 17 11:12:12 EDT 2000  Irwin Tillman  (irwin@princeton.edu)
+Thu Aug 17 11:12:12 EDT 2000  Irwin Tillman  (irwin at princeton dot edu)
 
 	* Version 1.0.1 released.
 
-Thu Aug 17 11:00:17 EDT 2000  Irwin Tillman  (irwin@princeton.edu)
+Thu Aug 17 11:00:17 EDT 2000  Irwin Tillman  (irwin at princeton dot edu)
 
 	* configfile.c (read_configfile): Add alert_program_name keyword.
 	(GetAlert_program_name): New function.
@@ -114,6 +134,6 @@ Thu Aug 17 11:00:17 EDT 2000  Irwin Tillman  (irwin@princeton.edu)
 	* dhcp_probe.c (main): sleep() a second time at end of cycle if
 	first sleep() returns immediately as workaround.
 
-Tue Jun 27 13:58:48 EDT 2000  Irwin Tillman  (irwin@princeton.edu)
+Tue Jun 27 13:58:48 EDT 2000  Irwin Tillman  (irwin at princeton dot edu)
 
 	* Initial version.

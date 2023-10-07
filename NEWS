@@ -2,6 +2,13 @@ dhcp_probe NEWS - history of user-visible changes.
 
 See the file ChangeLog for the details of all changes.
 
+Version 1.0.5 - August 24 2004, by Irwin Tillman
+
+* We make some effort to ignore BootP/DHCP responses we happen to capture 
+  that aren't actually in response to our probe (we check htype, hlen, 
+  and chaddr fields).
+
+
 Version 1.0.4 - May 2002, by Irwin Tillman
 
 * We should be able to compile under gcc 3.0.x now.

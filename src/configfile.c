@@ -67,7 +67,7 @@ read_configfile(const char *fname)
 	char buf[BUFSIZ]; /* one entire line read from input file */
 	int line; /* input file line counter */
 	char str1[BUFSIZ], str2[BUFSIZ], str3[BUFSIZ], str4[BUFSIZ]; /* tokens parsed by sscanf */
-	int tokens; /* number of tokens succesfully read by sscanf */
+	int tokens; /* number of tokens successfully read by sscanf */
 	int tmpint;
 	unsigned int tmpuint;
 	struct ether_addr *enet;

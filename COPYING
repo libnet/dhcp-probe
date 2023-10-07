@@ -1,7 +1,7 @@
 COPYING dhcp_probe
 
 This software was created by the Network Systems Group at Princeton University's
-Office of Information Technology, networking@princeton.edu.
+Office of Information Technology, networking at princeton dot edu.
 It was written by Irwin Tillman.
 
 Portions of this software are copyrighted by other organizations or individuals;
@@ -157,7 +157,7 @@ ftp://ftp.kohala.com/pub/rstevens/unpv12e.tar.gz
 =========================================================================
 
 The macro AC_CHECK_STRUCT_FOR in aclocal.4 is copyrighted by Wes Hardaker
-<wjhardaker@ucdavis.edu>, and was obtained from the GNU autoconf macro archive
+<wjhardaker at ucdavis dot edu>, and was obtained from the GNU autoconf macro archive
 at http://research.cys.de/autoconf-archive/
 
 Permission has been granted to use and distribute it under the following license,

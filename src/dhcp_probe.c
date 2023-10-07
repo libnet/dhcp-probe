@@ -703,6 +703,9 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 	struct ether_header *ether_header; /* access ethernet header */
 	struct ip *ip_header;				/* access ip header */
 	bpf_u_int32 ether_len;		/* bpf_u_int32 from pcap.h */
+	struct udphdr *udp_header; /* access UDP header */
+	struct bootp *bootp_pkt; /* access bootp/dhcp packet */
+	int bootp_min_len; 
 
 	/* fields parsed out from packet*/
 	struct ether_addr ether_dhost, ether_shost;
@@ -710,6 +713,9 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 	/* string versions of same */
 	char ether_dhost_str[MAX_ETHER_ADDR_STR], ether_shost_str[MAX_ETHER_ADDR_STR];
 	char ip_src_str[MAX_IP_ADDR_STR], ip_dst_str[MAX_IP_ADDR_STR];
+	int ip_header_len_bytes;
+	int udp_len; /* XXX why does udp.h declare this as signed? */
+	int udp_payload_len;
 
 	char *alert_program_name;
 
@@ -722,7 +728,7 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 	}
 
 	if ((ether_len < sizeof(sizeof(struct ether_header))) && (debug > 1)) {
-		report(LOG_WARNING, "interface %s, short packet (got %d, smaller than an Ethernet header)", ifname, ether_len);
+		report(LOG_WARNING, "interface %s, short packet (got %d bytes, smaller than an Ethernet header)", ifname, ether_len);
 		return;
 	}
 
@@ -740,7 +746,7 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 		report(LOG_DEBUG, "     interface %s, from ether %s to %s", ifname, ether_shost_str, ether_dhost_str);
 
 	if (ether_len < sizeof(sizeof(struct ether_header)) + sizeof(struct ip)) {
-		report(LOG_WARNING, "interface %s, short packet (got %d, smaller than IP header in Ethernet)", ifname, ether_len);
+		report(LOG_WARNING, "interface %s, short packet (got %d bytes, smaller than IP header in Ethernet)", ifname, ether_len);
 		return;
 	}	
 
@@ -756,6 +762,75 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 
 	if (debug > 10)
 		report(LOG_DEBUG, "     from IP %s to %s", ip_src_str, ip_dst_str);
+
+	ip_header_len_bytes = ip_header->ip_hl << 2;
+
+	/* Repeat the packet size check (through IP header), but taking into account ip_header_len_bytes */
+	if (ether_len < sizeof(sizeof(struct ether_header)) + ip_header_len_bytes) {
+		report(LOG_WARNING, "interface %s, short packet (got %d bytes, smaller than IP header in Ethernet)", ifname, ether_len);
+		return;
+	}	
+
+	/* we use udp_header to access the UDP header */
+	udp_header = (struct udphdr *) (packet + sizeof(struct ether_header) + ip_header_len_bytes);
+
+	if (ether_len <  sizeof(sizeof(struct ether_header)) + ip_header_len_bytes + sizeof(struct udphdr)) {
+		report(LOG_WARNING, "interface %s, short packet (got %d bytes, smaller than UDP/IP header in Ethernet)", ifname, ether_len);
+		return;
+	}	
+
+	udp_len = udp_header->uh_ulen;
+	if (udp_len < sizeof(struct udphdr)) {
+		report(LOG_WARNING, "interface %s, invalid UDP packet (UDP length %d, smaller than minimum value %d)", ifname, udp_len, sizeof(struct udphdr));
+		return;
+	}
+
+	udp_payload_len = udp_len - sizeof(struct udphdr);
+
+	/* The smallest bootp/dhcp packet (the UDP payload) is actually smaller than sizeof(struct bootp),
+	   as it's possible for DHCP replies to have shorter bootp_options fields.
+	*/
+	bootp_min_len = sizeof(struct bootp) - BOOTP_OPTIONS_LEN;
+
+	if (udp_payload_len < bootp_min_len) {
+		report(LOG_WARNING, "interface %s, invalid BootP/DHCP packet (UDP payload length %d, smaller than minimal BootP/DHCP payload %d)", ifname, udp_payload_len, bootp_min_len);
+		return;
+	}
+
+	/* we use bootp_pkt to access the bootp/dhcp packet */
+	bootp_pkt = (struct bootp *) (packet + sizeof(struct ether_header) + ip_header_len_bytes + sizeof(struct udphdr));
+
+	/* Make sure the packet is in response to our query, otherwise ignore it.
+	   Our query had bootp_htype=HTYPE_ETHER, bootp_hlen=HLEN_ETHER, and bootp_chaddr=GetChaddr().
+	   Any reply with different values isn't in response to our probe, so we must ignore it.
+	*/
+	if (bootp_pkt->bootp_htype != HTYPE_ETHER) {
+		if (debug > 10)
+			report(LOG_DEBUG, "     bootp_htype (%d) != HTYPE_ETHER (%d), so this is not a response to my probe, ignoring", bootp_pkt->bootp_htype, HTYPE_ETHER);
+		return;
+	}
+
+	if (bootp_pkt->bootp_hlen != HLEN_ETHER) {
+		if (debug > 10)
+			report(LOG_DEBUG, "     bootp_hlen (%d) != HLEN_ETHER (%d), so this is not a response to my probe, ignoring", bootp_pkt->bootp_hlen, HLEN_ETHER);
+		return;
+	}
+
+	if (bcmp(bootp_pkt->bootp_chaddr, GetChaddr(), HLEN_ETHER)) {
+		if (debug > 10) {
+			struct ether_addr ether_tmp;
+			char ether_tmp_str[MAX_ETHER_ADDR_STR];
+
+			/* create printable version of bootp_pkt->bootp_chaddr */
+			bcopy(&(bootp_pkt->bootp_chaddr), &ether_tmp, sizeof(ether_tmp));
+			bcopy(ether_ntoa(&ether_tmp), &ether_tmp_str, sizeof(ether_tmp_str));
+
+			report(LOG_DEBUG, "     bootp_chaddr (%s) != my chaddr (%s), so this is not a response to my probe, ignoring", ether_tmp_str, ether_ntoa(GetChaddr()));
+		}
+		return;
+	}
+
+	/* at this point we know the packet is a response to my probe */
 
 	/* ignore answers coming from legal IPsrc */
 	if (isLegalServersMember(&ip_src)) {

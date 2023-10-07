@@ -17,6 +17,7 @@ EXTRA_DIST = COPYING.GPL INSTALL.generic \
 	m4/sys_errlist.m4 \
 	extras/dhcp_probe.cf.sample \
 	extras/dhcp_probe_notify \
+	extras/mail-throttled \
 	extras/README
 
 ACLOCAL_AMFLAGS = -I m4

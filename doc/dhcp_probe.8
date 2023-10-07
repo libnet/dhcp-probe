@@ -1,6 +1,6 @@
 .\" Copyright (c) 2000-2002, The Trustees of Princeton University.  All rights reserved.
 .\"
-.TH DHCP_PROBE 8 "May 9 2002" "Princeton Univ."
+.TH DHCP_PROBE 8 "November 17 2002" "Princeton Univ."
 .SH NAME
 dhcp_probe \- locate DCHP and BootP servers on a directly-attached network
 .SH SYNOPSIS
@@ -64,8 +64,9 @@ possible states, attempting to provoke responses from servers.
 After sending each request packet, 
 dhcp_probe
 listens for responses.
-After filtering out responses from known DHCP and BootP servers (identified
-by their IP source addresses), it logs any responses from unknown servers.
+After filtering out responses that do not appear to be in response to the probe,
+and responses from known DHCP and BootP servers (identified by their IP source addresses), 
+it logs any responses from unknown servers.
 .PP
 Optionally, responses from unknown servers may also be written to
 a packet capture file.
@@ -258,6 +259,11 @@ filter.
 defaults to 5000 milliseconds (5 seconds), and may be changed in the
 .IR dhcp_probe.cf (5) 
 file.)
+.sp
+Any responses that contains a bootp_chaddr field not equal to the
+chaddr used in the probe is ignored, as are any that have 
+incorrect bootp_htype or bootp_hlen fields.
+These are not responses to our probe.
 .sp
 Any responses from known DHCP and BootP servers are ignored.
 (The IP address of each known server is declared using a

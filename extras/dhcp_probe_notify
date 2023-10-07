@@ -1,43 +1,115 @@
-#!/usr/local/bin/perl
+#!/usr/local/bin/perl -w
 
-# dhcp_probe_notify : external program called by dhcp_probe upon response of a
-#	response from an unexpected BootP/DHCP server
+# dhcp_probe_notify calling_prog_name interface_name IPaddress MACaddress
+#
+# External program called by dhcp_probe upon response of a response from an unexpected BootP/DHCP server.
 #
 # Called via specification of 'alert_program_name' in /etc/dhcp_probe.cf file.
 #
-# We are called with four arguments:
-#   the name of the calling program (e.g. 'dhcp_probe')
-#   the name of the interface on which the unexpected response packet arrived (e.g. 'qfe0')
-#   the IP source address of the unexpected response packet
-#   the Ethernet source address of the unexpected response packet
+# Arguments:
+#   calling_prog_name     the name of the calling program (e.g. 'dhcp_probe')
+#   interface_name        the name of the interface on which the unexpected response packet arrived (e.g. 'qfe0')
+#   IPaddress             the IP source address of the unexpected response packet (e.g. '192.168.0.1')
+#   MACaddress            the Ethernet source address of the unexpected response packet (e.g. '0:1:2:3:4:5')
+#
+# May send email subject to throttling.
+# May send page subject to throttling.
+#
+# You will need to edit the definitions below.
+#
+# Irwin Tillman
 
-
-$MAILCMD = "/usr/lib/sendmail";
-$MAILCMD_OPTS = "-t -ODeliveryMode=queueonly";
-$FROM = "root";
-$TO = "root";
-$SUBJECT = "unexpected BootP/DHCP server";
 
 use Sys::Hostname;
+use Sys::Syslog qw(:DEFAULT setlogsock);
+use Time::HiRes qw(gettimeofday); # from CPAN
+use strict;
 
-($prog = $0) =~ s/.*\///;
 
-$hostname = hostname();
+my $SYSLOG_FACILITY="daemon";                   # name of facility to use if syslogging
+my $SYSLOG_OPT = 'pid,cons';                    # syslog options to use if syslogging, ignored otherwise
 
-($calling_program, $ifname, $ip_src, $ether_src) = @ARGV;
+use vars qw($VERBOSE);
+$VERBOSE = 1;	# produce more verbose messages
 
-open(MAIL, "| $MAILCMD $MAILCMD_OPTS -f\"$FROM\"") or die "${prog}: can't execute '${MAILCMD}': $!\n";
+# we may send one piece of mail this way, subject to frequency throttling.
+# Use these for regular email (not a page).
+use vars qw($THROTTLE_MAIL_CMD $THROTTLE_MAIL_TIMEOUT $THROTTLE_MAIL_FROM $THROTTLE_MAIL_RECIPIENT $THROTTLE_MAIL_RECIPIENT_TEST $THROTTLE_MAIL_SUBJECT);
+$THROTTLE_MAIL_CMD = "/usr/local/etc/mail-throttled"; # set to "" to disable
+$THROTTLE_MAIL_TIMEOUT = 600; # seconds
+$THROTTLE_MAIL_FROM = "root";
+$THROTTLE_MAIL_RECIPIENT = "root someone\@example.org";
+$THROTTLE_MAIL_SUBJECT = "unexpected BootP/DHCP server";
 
-print MAIL  "From: $FROM\n",
-			"To: $TO\n",
-			"Subject: $SUBJECT (MAC=${ether_src}, IP=${ip_src})\n",
-			"\n",
-			scalar localtime(time),
+
+# we may also send another piece of email this way, subject to frequency throttling.
+# Use these for paging.
+use vars qw($THROTTLE_PAGE_CMD $THROTTLE_PAGE_TIMEOUT $THROTTLE_PAGE_RECIPIENT);
+$THROTTLE_PAGE_CMD = "/usr/local/etc/mail-throttled"; # set to "" to disable
+$THROTTLE_PAGE_TIMEOUT = 600; # seconds
+$THROTTLE_PAGE_RECIPIENT = "root someoneelse\@example.com";
+
+
+# You shouldn't need to edit anything below
+
+
+(my $prog = $0) =~ s/.*\///;
+
+# init our use of syslog
+# setlogsock('unix'); # talk to syslog with UNIX domain socket, not INET domain. XXX causes failure in Solaris 7
+openlog($prog, $SYSLOG_OPT, $SYSLOG_FACILITY);
+
+my $hostname = hostname();
+
+my ($calling_program, $ifname, $ip_src, $ether_src) = @ARGV;
+
+my ($seconds, $microseconds) = gettimeofday;    # from Time::HiRes on CPAN
+my $timestamp = scalar(localtime($seconds));
+$timestamp =~ s/(\d\d:\d\d:\d\d)/$1.$microseconds/; # glue microsends to end of seconds
+
+
+if ($THROTTLE_MAIL_CMD) {
+	# This command suppresses the message if it's sent a message to 'key' within 'throttle_seconds'
+	# I use the calling program's name and the offender's hardware address as the key.
+
+	open(THROTTLE_MAIL, "| $THROTTLE_MAIL_CMD -k ${calling_program}_mail_$ether_src -t $THROTTLE_MAIL_TIMEOUT -f \"$THROTTLE_MAIL_FROM\" -r \"$THROTTLE_MAIL_RECIPIENT\" -s\"$THROTTLE_MAIL_SUBJECT (MAC=${ether_src}, IP=${ip_src})\"")
+		or my_message('LOG_ERR', "${prog}: can't execute '${THROTTLE_MAIL_CMD}': $!"), exit 1;
+
+	print THROTTLE_MAIL
+			$timestamp, "\n",
 			"\n",
 			"$calling_program detected an unexpected BootP/DHCP server.\n",
 			"$hostname interface=${ifname}, IP source=${ip_src}, Ethernet source=${ether_src}\n";
+	print THROTTLE_MAIL "\nThis means there *is* a rogue BootP/DHCP server operating.\n" if $VERBOSE;
 
-close(MAIL) or die "${prog}: can't execute '${MAILCMD}': $!\n";
+	close(THROTTLE_MAIL) or my_message('LOG_ERR', "${prog}: can't execute '${THROTTLE_MAIL_CMD}': $!"), exit 1;
+}
+
+
+
+
+if ($THROTTLE_PAGE_CMD) {
+	# This command suppresses the message if it's sent a message to 'key' within 'throttle_seconds'
+	# I use the calling program's name and the offender's hardware address as the key.
+
+	open(THROTTLE_PAGE, "| $THROTTLE_PAGE_CMD -k ${calling_program}_page_$ether_src -t $THROTTLE_PAGE_TIMEOUT -r \"$THROTTLE_PAGE_RECIPIENT\"")
+		or die "${prog}: can't execute '${THROTTLE_PAGE_CMD}': $!\n";
+
+	print THROTTLE_PAGE "rogue DHCP server IP=$ip_src MAC=$ether_src seen via $hostname interface $ifname\n";
+	print THROTTLE_PAGE "This means there *is* a rogue BootP/DHCP server operating.\n" if $VERBOSE;
+
+	close(THROTTLE_PAGE) or die "${prog}: can't execute '${THROTTLE_PAGE_CMD}': $!\n";
+}
 
 exit 0;
 
+
+sub my_message {
+	# Call with a syslog priority constant and a message string.
+	# We write the message to syslog, using the specified priority.
+	# Your message should not contain a newline.
+
+	my($priority, $msg) = @_;
+	syslog($priority, $msg);
+	return;
+}
