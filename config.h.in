@@ -15,20 +15,24 @@
 /* Define to 1 if you have the <ctype.h> header file. */
 #undef HAVE_CTYPE_H
 
+/* Define to 1 if you have the declaration of `ether_aton', and to 0 if you
+   don't. */
+#undef HAVE_DECL_ETHER_ATON
+
+/* Define to 1 if you have the declaration of `ether_hostton', and to 0 if you
+   don't. */
+#undef HAVE_DECL_ETHER_HOSTTON
+
+/* Define to 1 if you have the declaration of `ether_ntoa', and to 0 if you
+   don't. */
+#undef HAVE_DECL_ETHER_NTOA
+
+/* Define to 1 if you have the declaration of `ether_ntohost', and to 0 if you
+   don't. */
+#undef HAVE_DECL_ETHER_NTOHOST
+
 /* Define to 1 if you have the <errno.h> header file. */
 #undef HAVE_ERRNO_H
-
-/* Define the following if ether_aton() is declared */
-#undef HAVE_ETHER_ATON_PROTO
-
-/* Define the following if ether_hostton() is declared */
-#undef HAVE_ETHER_HOSTTON_PROTO
-
-/* Define the following if ether_ntoa() is declared */
-#undef HAVE_ETHER_NTOA_PROTO
-
-/* Define the following if ether_ntohost() is declared */
-#undef HAVE_ETHER_NTOHOST_PROTO
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
@@ -221,5 +225,49 @@
 /* Version number of package */
 #undef VERSION
 
-/* On systems that lack a typedef for u_int32_t, define it as unsigned int. */
-#undef u_int32_t
+/* Define for Solaris 2.5.1 so the uint32_t typedef from <sys/synch.h>,
+   <pthread.h>, or <semaphore.h> is not used. If the typedef was allowed, the
+   #define below would cause a syntax error. */
+#undef _UINT32_T
+
+/* Define for Solaris 2.5.1 so the uint64_t typedef from <sys/synch.h>,
+   <pthread.h>, or <semaphore.h> is not used. If the typedef was allowed, the
+   #define below would cause a syntax error. */
+#undef _UINT64_T
+
+/* Define for Solaris 2.5.1 so the uint8_t typedef from <sys/synch.h>,
+   <pthread.h>, or <semaphore.h> is not used. If the typedef was allowed, the
+   #define below would cause a syntax error. */
+#undef _UINT8_T
+
+/* Define to the type of a signed integer type of width exactly 16 bits if
+   such a type exists and the standard includes do not define it. */
+#undef int16_t
+
+/* Define to the type of a signed integer type of width exactly 32 bits if
+   such a type exists and the standard includes do not define it. */
+#undef int32_t
+
+/* Define to the type of a signed integer type of width exactly 64 bits if
+   such a type exists and the standard includes do not define it. */
+#undef int64_t
+
+/* Define to the type of a signed integer type of width exactly 8 bits if such
+   a type exists and the standard includes do not define it. */
+#undef int8_t
+
+/* Define to the type of an unsigned integer type of width exactly 16 bits if
+   such a type exists and the standard includes do not define it. */
+#undef uint16_t
+
+/* Define to the type of an unsigned integer type of width exactly 32 bits if
+   such a type exists and the standard includes do not define it. */
+#undef uint32_t
+
+/* Define to the type of an unsigned integer type of width exactly 64 bits if
+   such a type exists and the standard includes do not define it. */
+#undef uint64_t
+
+/* Define to the type of an unsigned integer type of width exactly 8 bits if
+   such a type exists and the standard includes do not define it. */
+#undef uint8_t

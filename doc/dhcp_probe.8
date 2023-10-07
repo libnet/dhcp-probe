@@ -1,6 +1,6 @@
-.\" Copyright (c) 2000-2007, The Trustees of Princeton University.  All rights reserved.
+.\" Copyright (c) 2000-2008, The Trustees of Princeton University.  All rights reserved.
 .\"
-.TH DHCP_PROBE 8 "March 14 2007" "Princeton Univ."
+.TH DHCP_PROBE 8 "Feb 8 2008" "Princeton Univ."
 .SH NAME
 dhcp_probe \- locate DCHP and BootP servers on a directly-attached network
 .SH SYNOPSIS
@@ -111,6 +111,9 @@ However, if the host has multiple physical interfaces, you may run an
 instance of 
 dhcp_probe 
 on each interface.
+If your physical interface supports 802.1Q, you can use that to
+create a logical interface on each VLAN, then run an instance
+of dhcp_probe on each logical interface.
 .PP
 Because it is possible to configure a BootP or DHCP server so
 it only responds to a set of known clients, it is possible that 
@@ -651,6 +654,14 @@ of dhcp_probe to monitor each logical interfaces or logical network.
 A single instance of the program running on a physical interface
 is sufficient to provoke any servers on that physical network
 that might be willing to respond.
+.PP
+If your physical interface supports 802.1Q, you can use a single
+physical interface to monitor multiple VLANs.
+Use your operating system to create a logical interface on each VLAN,
+then run an instance of the program on each logical interface.
+Since the program is responsible for constructing Ethernet frame headers,
+you will probably need to specify the -Q option to instruct it to
+add to outgoing frames an 802.1Q VLAN header with the appropriate VLAN ID.
 .SH SIGNALS
 The program will respond to a number of signals:
 .TP

@@ -1,3 +1,45 @@
+Thu Feb 28 18:27:01 EST 2008  Irwin Tillman  (irwin at princeton dot edu)
+
+	* Released version 1.2.1.
+
+Sat Feb  9 19:33:55 EST 2008  Irwin Tillman  (irwin at princeton dot edu)
+
+	* configure.ac src/defs.h: When checking if ether_aton(), ether_ntoa(),
+	ether_ntohost(), and  ether_hostton() are declared, also check
+	sys/ethernet.h, as that's where they are in Solaris 10.
+
+	* configure.ac: When checking if ether_aton(), ether_ntoa(),
+	ether_ntohost(), and  ether_hostton() are declared, switch from using
+	AC_CHECK_FUNC_PROTO to using AC_CHECK_DECLS so we may specify multiple
+	include files.
+
+	* src/defs.h: Update the prototypes we provide for ether_aton(),
+	ether_ntoa(), ether_ntohost(), and  ether_hostton() when we don't find
+	system-provided prototypes for them.
+
+	* lib/inet_aton.c: replace version from glibc 2.1.2 with version from
+	glibc 2.7.
+
+	* configure.ac: add calls to AC_TYPE_INT8_T, AC_TYPE_INT16_T,
+	AC_TYPE_INT32_T, AC_TYPE_INT64_T, AC_TYPE_UINT8_T, AC_TYPE_UINT16_T,
+	AC_TYPE_UINT32_T, AC_TYPE_UINT64_T so we may move to the integer
+	types as per C99.  (libnet-specific code will still use the types
+	defined by libnet.)
+
+	* configure.ac: remove call to AC_UNP_CHECK_TYPE(u_int32_t, unsigned int).
+	On systems where it didn't find a u_int32_t type, it #defined one.
+	On newer platforms, that macro definition could interfere with libnet's
+	typedef of u_int32_t in libnet/libnet-types.h.  In newer gcc, this
+	would trigger "error: two or more data types in declaration specifiers".
+
+	* INSTALL.dhcp_probe: update to reflect that we are known to work
+	with libpcap 0.9.8.
+
+Tue Jun 19 15:32:30 EDT 2007  Irwin Tillman  (irwin at princeton dot edu)
+
+	* m4/ac_unp_check_type.m4, configure: upgrade AC_UNP_CHECK_TYPE to 1.6.
+	That fixes its test program to work in gcc 4.1.2.
+
 Wed Mar 14 10:06:15 EDT 2007  Irwin Tillman  (irwin at princeton dot edu)
 
 	* Version 1.2.0 released.
@@ -61,13 +103,13 @@ Mon Oct 10 10:36:57 EDT 2005  Irwin Tillman  (irwin at princeton dot edu)
 
 Wed Sep 21 16:25:31 EDT 2005  Irwin Tillman  (irwin at princeton dot edu)
 
-    * src/dhcp_probe.c, src/bootp.c, src/dhcp_probe.h, doc/dhcp_probe.8: 
+	* src/dhcp_probe.c, src/bootp.c, src/dhcp_probe.h, doc/dhcp_probe.8: 
 	add -Q option to specify an 802.1Q VLAN ID for outgoing frames.
 
 Thu Apr  7 14:10:37 EDT 2005  Irwin Tillman  (irwin at princeton dot edu)
 
 	* To prevent specific installation instructions from being overwritten by automake,
-	moved specific installation instructions from INSTALL to INSTALL.arp_bomber,
+	moved specific installation instructions from INSTALL to INSTALL.dhcp_probe,
 	moved generic installation instructions from INSTALL.generic to INSTALL.
 
 	* Upgraded automake from 1.8.3 to 1.9.5.
@@ -91,7 +133,7 @@ Fri Nov  5 10:54:05 EST 2004  Irwin Tillman  (irwin at princeton dot edu)
 	* src/dhcp_probe.c: correct 'writing packet' message to display the
 	libnet context label associated with the probe packet.
 
-	* Version now 1.1.0.
+	* Version  1.1.0 released.
  
 Thu Nov  4 16:02:38 EST 2004  Irwin Tillman  (irwin at princeton dot edu)
 

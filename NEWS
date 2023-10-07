@@ -2,11 +2,17 @@ dhcp_probe NEWS - history of user-visible changes.
 
 See the file ChangeLog for the details of all changes.
 
+Version 1.2.1 - February 28 2008, by Irwin Tillman
+
+* No user-visible changes.
+
+
 Version 1.2.0 - March 14 2007, by Irwin Tillman
 
 * Upgraded autoconf and automake, may build on newer systems.
 
 * Allow you to add 802.1Q VLAN ID to outgoing frames.
+
 
 Version 1.1.0 - November 10 2004, by Irwin Tillman
 
@@ -17,13 +23,16 @@ Version 1.1.0 - November 10 2004, by Irwin Tillman
   Additionally, you must modify libnet to add a
   libnet_cq_end_loop() function, as described in our INSTALL document.
 
+
 Version 1.0.7 - November 2 2004, by Irwin Tillman
 
 * No user-visible changes.
 
+
 Version 1.0.6 - August 24 2004, by Irwin Tillman
 
 * Upgraded autoconf and automake, may build on newer systems.
+
 
 Version 1.0.5 - August 24 2004, by Irwin Tillman
 
@@ -31,23 +40,28 @@ Version 1.0.5 - August 24 2004, by Irwin Tillman
   that aren't actually in response to our probe (we check htype, hlen, 
   and chaddr fields).
 
+
 Version 1.0.4 - May 2002, by Irwin Tillman
 
 * We should be able to compile under gcc 3.0.x now.
 
+
 Version 1.0.3 - February 2001, by Irwin Tillman
 
 * No user-visible changes.
+
 
 Version 1.0.2 - January 2001, by Irwin Tillman
 
 * Cleanup of some of the configuration code.  You may now specify
   where libnet and libpcap libraries and includes are located.
 
+
 Version 1.0.1 - August 2000, by Irwin Tillman
 
 * Added alert_program_name feature, so you may specify an external
   program to run each time a response is received from an unexpected server.
+
 
 Version 1.0.0 - June 2000, by Irwin Tillman
 

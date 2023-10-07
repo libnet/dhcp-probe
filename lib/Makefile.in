@@ -38,7 +38,6 @@ DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in inet_aton.c \
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ac_check_func_proto.m4 \
 	$(top_srcdir)/m4/ac_check_struct_for.m4 \
-	$(top_srcdir)/m4/ac_unp_check_type.m4 \
 	$(top_srcdir)/m4/ist_require_libnet.m4 \
 	$(top_srcdir)/m4/ist_require_pcap.m4 \
 	$(top_srcdir)/m4/ist_sys_socket_ioctls_use_streams.m4 \

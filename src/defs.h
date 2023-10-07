@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <errno.h>
 #include <string.h>
 #include <strings.h>
@@ -28,9 +29,20 @@
 #include <varargs.h>
 #endif
 
-#include <sys/types.h>
+#ifdef HAVE_INTTYPES_H
+# include <inttypes.h>
+#elif defined(HAVE_STDINT_H)
+# include <stdint.h>
+#endif
 
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+
+#ifdef HAVE_SYS_SOCKET_H
+/* On Solaris, you must include sys/types.h before sys/socket.h. */
 #include <sys/socket.h>
+#endif
 
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
@@ -53,7 +65,9 @@
 
 #include <limits.h>
 
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 #include <sys/wait.h>
 
@@ -65,19 +79,34 @@
 #include <netinet/in.h>
 #endif
 
+/* To get declarations of ether_aton(), ether_ntoa(), ether_ntohost(), ether_hostton() on Solaris 10,
+   we need sys/ethernet.h.  But it's not a good idea to include sys/ethernet.h directly; while that
+   would work in Solaris 10, it would break in Solaris 9 if we ever find we need to include netinet/if_ether;
+   in Solaris 9 you must not include BOTH netinet/if_ether.h and sys/ethernet.h, since there are some definitions 
+   duplicated in the two files.
+   Fortunately, on Solaris 10, netinet/if_ether.h includes sys/ethernet.h for you, ultimately
+   getting the ether_aton(), ether_ntoa(), ether_ntohost(), ether_hostton() declarations we want.
+   So the result is that on Solaris 9, by including netinet/if_ether.h we avoid a potential future
+   conflict  and we don't get ether_aton(), ether_ntoa(), ether_ntohost(), ether_hostton(), but those four declarations
+   aren't available in Solaris 9 anyway.  And in Solaris 10, we get ether_aton(), ether_ntoa(), ether_ntohost(), ether_hostton().
+*/
 #ifdef HAVE_NETINET_IF_ETHER_H
+/* In Solaris, before using netinet/if_ether.h you need sys/socket.h and net/if.h.   We already have both above. */
 #include <netinet/if_ether.h>
+#endif
+
+#ifdef HAVE_NETINET_ETHER_H
+/* ether_aton(), ether_ntoa(), ether_ntohost(), ether_hostton() are declared in netinet/ether.h on Redhat 9. */
+#include <netinet/ether.h>
 #endif
 
 #include <netinet/in_systm.h> /* for n_long def used by netinet/ip.h */
 
+#ifdef HAVE_NETINET_IP_H
 #include <netinet/ip.h>
+#endif
 
 #include <netinet/udp.h>
-
-#ifdef HAVE_NETINET_ETHER_H
-#include <netinet/ether.h>
-#endif
 
 #ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
@@ -115,17 +144,17 @@ extern int inet_aton(const char *, struct in_addr *);
 #define PASTE(a,b) a ## b
 
 /* Prototypes for these routines are missing from some systems. */
-#ifndef HAVE_ETHER_NTOA_PROTO
-char *ether_ntoa (struct ether_addr *e);
+#if !HAVE_DECL_ETHER_NTOA
+extern char *ether_ntoa (const struct ether_addr *e);
 #endif
-#ifndef HAVE_ETHER_ATON_PROTO
-struct ether_addr *ether_aton(char *hostname);
+#if !HAVE_DECL_ETHER_ATON
+extern struct ether_addr *ether_aton(const char *hostname);
 #endif
-#ifndef HAVE_ETHER_NTOHOST_PROTO
-int ether_ntohost (char *hostname, struct ether_addr *e);
+#if !HAVE_DECL_ETHER_NTOHOST
+extern int ether_ntohost (char *hostname, const struct ether_addr *e);
 #endif
-#ifndef HAVE_ETHER_HOSTTON_PROTO
-int ether_hostton (char *hostname, struct ether_addr *e);
+#if !HAVE_DECL_ETHER_HOSTTON
+extern int ether_hostton (const char *hostname, struct ether_addr *e);
 #endif
 
 

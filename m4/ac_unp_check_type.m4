@@ -5,7 +5,7 @@ dnl with "UNIX Network Programming: Volume 1", Second Edition,
 dnl by W. Richard Stevens.  That sample code is available via
 dnl ftp://ftp.kohala.com/pub/rstevens/unpv12e.tar.gz.
 dnl
-dnl Version $Id: ac_unp_check_type.m4,v 1.5 2004/08/24 12:39:30 root Exp $
+dnl Version $Id: ac_unp_check_type.m4,v 1.6 2007/06/19 19:19:08 root Exp $
 dnl
 dnl Usage:
 dnl   AC_UNP_CHECK_TYPE(type, default)
@@ -111,7 +111,7 @@ AC_DEFUN([AC_UNP_CHECK_TYPE],
 								#endif
 							]]
 							[[
-			 					$1 foo
+			 					$1 foo ;
 							]]
 							)
 						],
