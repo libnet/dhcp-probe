@@ -23,12 +23,16 @@ extern struct ether_addr my_eaddr;
 
 
 /* What flavor of DHCP or BootP packet to send? */
+/* We construct the packets and insert them into a libnet context queue in the order they appear below.
+   When we ask libnet to walk the queue in order, it seems to return them in reverse order, as if it were a LIFO stack.
+   So we list the flavors below in the reverse of the order we actually wish to send them.
+*/
 enum dhcp_flavor_t {
-	BOOTP = 0,          /* send BOOTPREQUEST */
-	DHCP_INIT,          /* send DHCPDISCOVER */
-	DHCP_SELECTING,     /* send DHCPREQUEST, client in SELECTING state */
+	DHCP_REBINDING = 0, /* send DHCPREQUEST, client in REBINDING state */
 	DHCP_INIT_REBOOT,   /* send DHCPREQUEST, client in INIT-REBOOT state */
-	DHCP_REBINDING      /* send DHCPREQUEST, client in REBINDING state */
+	DHCP_SELECTING,     /* send DHCPREQUEST, client in SELECTING state */
+	BOOTP,              /* send BOOTPREQUEST */
+	DHCP_INIT           /* send DHCPDISCOVER */
 };
 #define NUM_FLAVORS 5
 

@@ -1,6 +1,99 @@
+Mon Mar  9 16:04:21 EDT 2009  Irwin Tillman  (irwin at princeton dot edu)
+
+	* Makefile.am: updated list of files in ./extras.
+
+	* Released version 1.3.0.
+
+Thu Feb 19 10:57:58 EST 2009  Irwin Tillman  (irwin at princeton dot edu)
+
+	* At configure time, verify that libnet_cq_end_loop is declared as a result
+	of including libnet.h; if not, refer user to INSTALL.dhcp_probe.
+
+	* At configure time, verify that libnet_cq_end_loop is defined.
+	If not, refer user to INSTALL.dhcp_probe.
+
+Thu Jan 29 18:47:56 EST 2009 Laurent Guignard <lguignard dot debian at gmail dot com>
+
+	* doc/dhcp_probe.8: escape -Q
+
+Wed Dec 24 09:43:19 EST 2008  Irwin Tillman  (irwin at princeton dot edu)
+
+	* README, INSTALL, doc/dhcp_probe.8: added a paragraph warning that
+	the software should not be run on a network where you don't have
+	permission to do so.
+
+Mon Dec 22 14:27:50 EST 2008  Irwin Tillman  (irwin at princeton dot edu)
+
+	* src/configfile.h, src/configfile.c, src/dhcp_probe.c, doc/dhcp_probe.8,
+	doc/dhcp_probe.cf.5, extras/dhcp_probe.cf.sample: add support for new 
+	legal_server_ethersrc statement.
+
+Mon Dec  8 10:44:21 EST 2008  Irwin Tillman  (irwin at princeton dot edu)
+
+	* src/dhcp_probe.h: re-order dhcp_flavor_t elements, to cause the
+	packets to get sent in the order we want.
+
+Fri Dec  5 18:16:52 EST 2008  Irwin Tillman  (irwin at princeton dot edu)
+
+	* src/configfile.h, src/configfile.c, src/dhcp_probe.c, doc/dhcp_probe.8,
+	doc/dhcp_probe.cf.5, extras/dhcp_probe.cf.sample:
+	add support for new 'alert_program_name2' configuration file statement.
+
+	* extras/dhcp_probe_notify2: added, supports syntax required by the new
+	'alert_program_name2' configuration file statement.
+
+	* extras/dhcp_probe_notify: add comment noting that this supports the
+	old syntax used by 'alert_program_name'
+
+	* extras/README: add dhcp_probe_notify2, update description for dhcp_probe_notify.
+
+	* INSTALL.dhcp_probe: refer to dhcp_probe_notify2 instead of dhcp_probe_notify.
+
+	* src/configfile.h, src/configfile.c, src/dhcp_probe.c, doc/dhcp_probe.8,
+	doc/dhcp_probe.cf.5, extras/dhcp_probe.cf.sample, extras/dhcp_probe_notify2: 
+	add support for new "Lease Networks of Concern" feature.
+
+	* extras/mail-throttled: when tie() fails with EAGAIN, retry several times.
+	Add new -T and -S options to tune this.
+
+Wed Dec  3 14:38:52 EST 2008  Irwin Tillman  (irwin at princeton dot edu)
+
+	* extras/mail-throttled: add new -l option to also log errors, warnings, and debug
+	output to syslog (in addition to writing to STDERR).
+
+	* extras/dhcp_probe_notify: when calling mail-throttled, specify -l option.
+ 
+Tue Nov 18 17:23:08 EST 2008  Irwin Tillman  (irwin at princeton dot edu)
+
+	* src/defaults.h: change BOOTP_XID from 0x00000001 to 0x19970112,
+	because we have seen one DHCP server that *might* ignore
+	a DHCP client that specifies BOOTP_XID of 0x00000001.
+
+Mon Nov 10 11:20:43 EST 2008  Irwin Tillman  (irwin at princeton dot edu)
+
+	* src/bootp.c: when constructing a DHCP probe packet, place the DHCP Message
+	Type option immediately after the RFC1048 cookie, because we have seen one
+	(broken) DHCP server that *might* only answer DHCP clients if the specifies
+	this option right after the RFC1048 cookie.
+
+Mon Oct 20 16:02:49 EDT 2008  Irwin Tillman  (irwin at princeton dot edu)
+
+	* extras/dhcp_probe.startup, extras/dhcp_probe.sh, extras/README:
+	renamed dhcp_probe.startup to dhcp_probe.startup.Solaris9 to make it clearer 
+	that this startup script is for Solaris 9.  
+	renamed dhcp_probe.sh to dhcp_probe.FreeBSD.sh to make it clearer that this 
+	startup script is for FreeBSD.
+
+	* INSTALL.dhcp_probe, PLATFORMS: move some platform-specific information
+	from INSTALL.dhcp_probe to PLATFORMS.
+
+Fri Oct 17 15:16:14 EDT 2008  Irwin Tillman  (irwin at princeton dot edu)
+
+	* Upgraded autoconf 2.62 to 2.63.  
+
 Fri Oct 10 15:32:41 EDT 2008  Irwin Tillman  (irwin at princeton dot edu)
 
-    * Released version 1.2.2.
+	* Released version 1.2.2.
 
 Mon Oct  6 15:09:13 EDT 2008  Irwin Tillman  (irwin at princeton dot edu)
 
@@ -422,7 +515,7 @@ Thu Aug 17 11:00:17 EDT 2000  Irwin Tillman  (irwin at princeton dot edu)
 
 	* extras/dhcp_probe.cf.sample: add sample of alert_program_name.
 
-    * extras/dhcp_probe_notify: New file, a sample alert program.
+	* extras/dhcp_probe_notify: New file, a sample alert program.
 
 	* dhcp_probe.c (main): sleep() a second time at end of cycle if
 	first sleep() returns immediately as workaround.

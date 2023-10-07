@@ -3,22 +3,32 @@ README for extras
 dhcp_probe.cf.sample is a sample dhcp_probe configuration file.  You may find
 it useful to use as a template.
 
-dhcp_probe_notify is a sample alert_program.  It is a Perl script that sends email.
-If you choose to use, it, install it someplace on your system where the dhcp_probe
-daemon can execute it.  You will need to edit the definitions at the top of 
-this script.  Note that it calls the mail-throttled script below.
+dhcp_probe_notify2 is a sample alert program, suitable for specification
+via the alert_program_name2 configuration file statement.  It is a Perl script 
+that sends email.  If you choose to use, it, install it someplace on your system 
+where the dhcp_probe daemon can execute it.  You will need to edit the definitions 
+at the top of this script.  Note that it calls the mail-throttled script below.
 
-mail-throttled is a perl script called by dhcp_probe_notify to throttle the frequency
-of messages that share a unique "key" specified by its caller.
-If you choose to use, it, install it someplace on your system where the dhcp_probe_notify
-script (called by dhcp_probe daemon) can execute it.
+dhcp_probe_notify is a sample alert program, similar to dhcp_probe_notify2;
+see the description above for 'dhcp_probe_notify2' for details.
+Unlike dhcp_probe_notify2, this program supports the older syntax used by 
+the alert_program_name configuration file statement, rather than the newer 
+syntax used by the alert_program_name2 configuration file statement.
+Because the older syntax is not extensible, this version cannot provide all the
+same features as 'dhcp_probe_notify2'.
+
+mail-throttled is a perl script called by dhcp_probe_notify2 or
+dhcp_probe_notify to throttle the frequency of messages that share a unique "key" 
+specified by its caller.  If you choose to use, it, install it someplace on your 
+system where the dhcp_probe_notify script (called by dhcp_probe daemon) can execute it.
 You will need to edit the definitions at the top.
 
-dhcp_probe.startup is a sample startup script that works in Solaris 9.
-You may find it useful to use as a template.
+dhcp_probe.startup.Solaris9 is a sample startup script that works in Solaris 9.
+If you choose to use it, place it in /etc/init.d/ with the filename 'dhcp_probe',
+and the symlinks documented in the script's comments.
 
-dhcp_probe.sh is a sample rcNG script for use with FreeBSD.
-If you choose to use it, place it in /usr/local/etc/rc.d/ then enable
-it in /etc/rc.conf:
+dhcp_probe.FreeBSD.sh is a sample rcNG script for use with FreeBSD.
+If you choose to use it, place it in /usr/local/etc/rc.d/ with the
+filename 'dhcp_probe.sh', then enable it in /etc/rc.conf:
 dhcp_probe_enable="YES"
 dhcp_probe_flags="<interface>"

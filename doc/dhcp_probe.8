@@ -1,6 +1,6 @@
-.\" Copyright (c) 2000-2008, The Trustees of Princeton University.  All rights reserved.
+.\" Copyright (c) 2000-2009, The Trustees of Princeton University.  All rights reserved.
 .\"
-.TH DHCP_PROBE 8 "Oct 3 2008" "Princeton Univ."
+.TH DHCP_PROBE 8 "Mar 9 2009" "Princeton Univ."
 .SH NAME
 dhcp_probe \- locate DCHP and BootP servers on a directly-attached network
 .SH SYNOPSIS
@@ -72,7 +72,8 @@ After sending each request packet,
 dhcp_probe
 listens for responses.
 After filtering out responses that do not appear to be in response to the probe,
-and responses from known DHCP and BootP servers (identified by their IP source addresses), 
+and responses from known DHCP and BootP servers (identified by their IP source addresses
+and optionally by their Ethernet source addresses), 
 it logs any responses from unknown servers.
 .PP
 Optionally, responses from unknown servers may also be written to
@@ -81,8 +82,6 @@ a packet capture file.
 Optionally, an external program may be called each time a response
 from an unknown server is received.
 .PP
-Because a DHCP or BootP server may be configured in such a way as to
-not respond to arbitrary clients, 
 dhcp_probe
 may not be able to
 locate all DHCP and BootP servers; see
@@ -118,11 +117,13 @@ If your physical interface supports 802.1Q, you can use that to
 create a logical interface on each VLAN, then run an instance
 of dhcp_probe on each logical interface.
 .PP
-Because it is possible to configure a BootP or DHCP server so
-it only responds to a set of known clients, it is possible that 
-dhcp_probe
-will be unable to find all BootP and DHCP
-servers attached to a network.
+dhcp_probe is intended for use by a network administrator.  
+Before running dhcp_probe on any network other than one for which you are responsible,
+contact that network's administrator to learn if it is acceptable for you
+to run this software on that network.    
+Running this software may violate
+on a network where you don't have permission to do so may violate that
+network's acceptable use policy.
 .SH AVAILABILITY
 .PP
 dhcp_probe
@@ -233,7 +234,8 @@ Enables the 'socket receive timeout' feature.
 On some platforms, dhcp_probe may ignore the 
 .I response_wait_time
 (described in 
-.BR dhcp_probe.cf (5)), instead waiting forever for a response
+.BR dhcp_probe.cf (5)), 
+instead waiting forever for a response
 after it sends a probe packet.
 As per
 .BR pcap (3),
@@ -303,23 +305,64 @@ incorrect bootp_htype or bootp_hlen fields.
 These are not responses to our probe.
 .sp
 Any responses from known DHCP and BootP servers are ignored.
-(The IP address of each known server is declared using a
+The IP source address for responses from each known server is declared using a
 .B legal_server
 statement in the
 .IR dhcp_probe.cf (5)
-file.)
+file.
+Any response with an IP source address that does not appear in a
+.B legal_server
+statement is treated as an unknown server.
 .sp
-For each response from an unknown server, log a message showing the response packet's
-source IP and Ethernet addresses.
+The Ethernet source address for responses from each known server is also
+optionaly declared using a
+.B legal_server_ethersrc
+statement in the
+.IR dhcp_probe.cf (5)
+file.
+If at least one 
+.B legal_server_ethersrc
+is specified, then any response with an Ethernet source address
+that does not appear in a
+.B legal_server_ethersrc
+statement is treated as an unknown server.
+If no 
+.B legal_server_ethersrc
+statements appear, then the response's Ethernet source address is not checked.
+(The 
+.B legal_server_ethersrc
+statement is considered experimental in version 1.3.0,
+as it has received only limited testing.)
+.sp
+For each response from an unknown server:
+.TP 10
+a)
+If the reponse packet contains a non-zero
+.BI yiaddr 
+field, and one or more 
+.B lease_network_of_concern
+statements were specified,
+determine if the 
+.B yiaddr
+value falls within any of the "Lease Networks of Concern".
+.TP 10
+a)
+Log a message showing the response packet's source IP and Ethernet addresses.
+If the response packet's yiaddr is non-zero and falls within a "Lease Networks of Concern",
+the log message also reports that.
+.TP 10
+b)
 If the 
 .B \-o 
 option was specified, the packet is also written to a packet capture file. 
+.TP 10
+c)
 If an
 .I alert_program_name
 was specified in the
-.IR dhcp_probe.cf (5) 
+.IR dhcp_probe.cf (5)
 file,
-that program is also executed, with the following arguments:
+that program is executed, with the following arguments in order:
 the name of the calling program (e.g.
 .BR dhcp_probe ),
 the name of the interface on which the unexpected response packet was received,
@@ -327,6 +370,28 @@ the IP source address of the packet,
 and the Ethernet source address of the packet.
 (We do not wait for the
 .I alert_program_name
+to complete; it runs in a child process.)
+.TP 10
+d)
+If an
+.I alert_program_name2
+was specified in the
+.IR dhcp_probe.cf (5) 
+file,
+that program is executed, with the following required options:
+.nf
+   -p the name of the calling program (e.g. dhcp_probe)
+   -I the name of the interface on which the unexpected response packet was received
+   -i the IP source address of the packet
+   -m and the Ethernet source address of the packet
+.fi
+If the response packet's yiaddr is non-zero and falls within a "Lease Networks of Concern",
+the following optional options are also passed:
+.nf
+   -y the non-zero yiaddr value
+.fi
+(We do not wait for the
+.I alert_program_name2
 to complete; it runs in a child process.)
 .TP
 5.
@@ -683,7 +748,7 @@ physical interface to monitor multiple VLANs.
 Use your operating system to create a logical interface on each VLAN,
 then run an instance of the program on each logical interface.
 Since the program is responsible for constructing Ethernet frame headers,
-you will probably need to specify the -Q option to instruct it to
+you will probably need to specify the \-Q option to instruct it to
 add to outgoing frames an 802.1Q VLAN header with the appropriate VLAN ID.
 .SH SIGNALS
 The program will respond to a number of signals:
@@ -725,6 +790,35 @@ If the program is in the middle of a probe cycle, handling
 the signal is deferred until the program finishes
 sending and receiving responses for the current flavor
 request packet.
+.SH "LEASE NETWORKS OF CONCERN"
+Most rogue BootP/DHCP servers distribute private IP addresses to
+clients, or send DHCPNAK messages to legitimate clients.
+Some even more disruptive rogue BootP/DHCP servers may distribute IP addresses
+that fall within your own networks' IP ranges.
+The "Lease Networks of Concern" feature is intended to help you
+identify these particularly disruptive servers.
+.PP
+You may activate the feature by specifying the
+.B lease_network_of_concern 
+statement in your configuration file.
+Use the statement multiple times to specify all your legitimate network ranges.
+.PP
+When a rogue BootP/DHCP server is detected, 
+if the rogue's response packet contains a non-zero 
+.B yiaddr 
+value, the value is compared to the "Lease Networks of Concern" you specified.
+If the value falls within any of those network ranges, the message
+logged by
+.B dhcp_probe
+is extended to make note of this, and to report the 
+.B yiaddr
+value.
+Furthermore, if you are using the
+.B alert_program_name2
+feature, the alert program is called with an extra 
+.B "\-y yiaddr"
+option so that alert program can take any additional action desired.
+.PP
 .SH "DEBUG LEVELS"
 The program produces increasingly detailed output as the
 .I debuglevel
@@ -819,13 +913,25 @@ does not involve any Layer 2 switching).
 Another approach is to do UDP port scanning for all devices 
 listening on the BootP server port, and assume that those
 which are listening on that port are running a BootP or DHCP server.
+.PP
+Malicious BootP or DHCP servers that forge the IP source address
+(and possibly the Ethernet source address) of their responses
+to match the values specified by
+.B legal_server
+and
+.B legal_server_ethersrc
+statements
+will not be detected.
 .SH BUGS
 The packet capture buffer size is limited; if a single request packet
 provokes more responses than will fit into the buffer, those that do
 not fit are silently dropped, without any diagnostic indicating
 that the buffer was too small.
+You can adjust the size of the packet capture buffer size using the
+.BI \-s \ capture_bufsize
+option.
 .PP
-We do not support FDDI interfaces at this time.
+We do not support non-Ethernet interfaces.
 .PP
 Because (re-)opening a packet capture file causes the file to be opened
 for writing (not appending),

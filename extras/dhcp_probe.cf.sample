@@ -128,40 +128,95 @@
 
 # ----------------------------------------------------------------------------------
 #
-# LEGAL SERVERS
+# LEGAL SERVERS' IP SOURCE ADDRESSES
 #
 # After sending one packet, we wait for responses.  Responses from legal BootP or DHCP
 # servers are ignored; presumably you aren't interesting in discovering them.
-# Specify a legal server's IP address with the 'legal_server' statement.  
-# (The value you specify is compared to the IPsrc field in each response's IP header.)
+# Specify a legal server's IP source address with the 'legal_server' statement.
+# The value you specify is compared to the IPsrc field in each response's IP header.
+#
 # If you have multiple legal servers, specify each in a separate statement.
-# Alternatively, do not specify any legal_server statements at all, so *no* responses
-# are ignored.
 # If your BootP Relay Agents overwrite the server's IP address in the IPsrc field
 # with their own IP addresses, you will need to list the IP addresses of the
 # BootP Relay Agents.
 #
+# Alternatively, do not specify any legal_server statements at all, so *no* responses
+# will be considered legal.
+# (This is different from the way legal_server_ethersrc statements are handled.)
+#
+# If both legal_server and legal_server_ethersrc statements appear, then a response
+# must have both a valid IP source and a valid ethernet source to be considered legal.
+#
 # Syntax:
 #   legal_server ip-addr
+
 
 # legal_server 192.168.1.2
 # legal_server 192.168.3.4
 
 # ----------------------------------------------------------------------------------
 #
+# LEGAL SERVERS' ETHERNET SOURCE ADDRESSES
+#
+# Specify a legal server's Ethernet source address with the 'legal_server_ethersrc' statement.
+# The value you specify is compared to the ethernet_src field in each response's IP header.
+#
+# If you have multiple legal ethernet sources, specify each in a separate statement.
+# Each router on the path from the DHCP server to the DHCP client will overwrite
+# the ethernet_src field.  So also list the ethernet_src value(s) for the last hop router(s).
+# The BootP Relay Agent on the path from the DHCP server to the DHCP client will overwrite
+# the ethernet_src field.  So also list the ethernet_src value(s) for the BootP Relay Agent.
+# (This is often co-resident in the last-hop IP router, so you may have already taken care
+# of this when you listed the last-hop router(s).
+#
+# Alternatively, do not specify any legal_server_ethersrc statements at all.
+# If none are specified, then all ethernet_src values are considered legal.
+# (This is different from the way legal_server statements are handled.)
+#
+# If both legal_server and legal_server_ethersrc statements appear, then a response
+# must have both a valid IP source and a valid ethernet source to be considered legal.
+#
+# Syntax:
+#   legal_server_ethersrc enet-addr
+
+# legal_server_ethersrc 0:2:4:ab:cd:ef
+# legal_server_ethersrc 0:17:30:1:0A:3
+
+# ----------------------------------------------------------------------------------
+#
 # ALERT PROGRAM NAME
 #
-# In addition to logging a response received from an unexpected server, we will
-# call a user-specified 'alert program' if one is specified here.  Optionally
+# In addition to logging a response received from an unexpected server, we will optionally
+# call a user-specified 'alert program' if one is specified here.  To use this feature,
 # specify the absolute pathname of a program we should execute for each unexpected response.
-# The program will be called with the name of the calling program, the name of the interface
-# on which the response was received, the IP source of the response, and the ether_src of the
-# response.
+# Either specify it using the older 'alert_program_name' statement, or (preferrably) using
+# the newer 'alert_program_name2' statement.  (The newer statement is preferrable because
+# it calls the alert program with a more extensible syntax.)  You may not specify
+# both alert_program_name and alert_program_name2.
+#
+# Old style alert program:
 #
 # Syntax:
 #   alert_program_name /absolute/path/name
+#
+# The program specified via 'alert_program_name' will be called as follows:
+#   /absolute/path/name  name_of_calling_program  name_of_interface_on_which_the_response_was_received  IP_source_of_the_response  ether_src_of_the_response
+#
+#
+#
+# Newer style alert program:
+#
+# Syntax:
+#   alert_program_name2 /absolute/path/name
+#
+# The program specified via 'alert_program_name2' will be called as follows:
+#   /absolute/path/name  -p name_of_calling_program  -I name_of_interface_on_which_the_response_was_received  -i IP_source_of_the_response  -m ether_src_of_the_response [-y yiaddr_when_in_lease_networks_of_concern]
+# The options may appear in any order.
+# The program must silently ignore any options or arguments it does not recognize,
+# so as to be forward-compatible with future enhancements to dhcp_probe.
 
-# alert_program_name /usr/local/etc/pageme
+
+# alert_program_name2 /usr/local/etc/dhcp_probe_notify2
 
 # ----------------------------------------------------------------------------------
 

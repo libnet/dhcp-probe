@@ -4,6 +4,10 @@
 #
 # External program called by dhcp_probe upon response of a response from an unexpected BootP/DHCP server.
 #
+# This version obeys the syntax provided by the old 'alert_program_name' statement,
+# not the syntax provided by the newer 'alert_program_name2' statement.
+# Use of the newer syntax is preferred; dhcp_probe_notify2 supports that newer syntax.
+#
 # Called via specification of 'alert_program_name' in /etc/dhcp_probe.cf file.
 #
 # Arguments:
@@ -77,7 +81,7 @@ if ($THROTTLE_MAIL_CMD) {
 	# This command suppresses the message if it's sent a message to 'key' within 'throttle_seconds'
 	# I use the calling program's name and the offender's hardware address as the key.
 
-	unless (open(THROTTLE_MAIL, "| $THROTTLE_MAIL_CMD -k ${calling_program}_mail_$ether_src -t $THROTTLE_MAIL_TIMEOUT -f \"$THROTTLE_MAIL_FROM\" -r \"$THROTTLE_MAIL_RECIPIENT\" -s\"$THROTTLE_MAIL_SUBJECT (MAC=${ether_src}, IP=${ip_src})\"")) {
+	unless (open(THROTTLE_MAIL, "| $THROTTLE_MAIL_CMD -l -k ${calling_program}_mail_$ether_src -t $THROTTLE_MAIL_TIMEOUT -f \"$THROTTLE_MAIL_FROM\" -r \"$THROTTLE_MAIL_RECIPIENT\" -s\"$THROTTLE_MAIL_SUBJECT (MAC=${ether_src}, IP=${ip_src})\"")) {
 
 		my_message('LOG_ERR', "${prog}: failure trying to send throttled email: can't execute '${THROTTLE_MAIL_CMD}': open(): $!");
 		exit 20;
@@ -112,7 +116,7 @@ if ($THROTTLE_PAGE_CMD) {
 	# This command suppresses the message if it's sent a message to 'key' within 'throttle_seconds'
 	# I use the calling program's name and the offender's hardware address as the key.
 
-	unless (open(THROTTLE_PAGE, "| $THROTTLE_PAGE_CMD -k ${calling_program}_page_$ether_src -t $THROTTLE_PAGE_TIMEOUT -r \"$THROTTLE_PAGE_RECIPIENT\"")) {
+	unless (open(THROTTLE_PAGE, "| $THROTTLE_PAGE_CMD -l -k ${calling_program}_page_$ether_src -t $THROTTLE_PAGE_TIMEOUT -r \"$THROTTLE_PAGE_RECIPIENT\"")) {
 		my_message('LOG_ERR', "${prog}: failure trying to send throttled page: can't execute '${THROTTLE_PAGE_CMD}': open(): $!\n");
 		exit 30;
 	}

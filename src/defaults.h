@@ -21,9 +21,11 @@
    If you need to specify more values, increase these sizes.
 */
 #define MAX_LEGAL_SERVERS 64
+#define MAX_LEASE_NETWORKS_OF_CONCERN 128
+#define MAX_LEGAL_SERVER_ETHERSRCS 64
 
 /* transaction ID field in bootp header */
-#define BOOTP_XID 0x00000001
+#define BOOTP_XID 0x19970112
 
 /* When pcap_open_live() fails, number of times to retry before giving up.
    Should fit into an int.
@@ -74,6 +76,8 @@
 */
 #define CAPTURE_BUFSIZE (20 * 1514)
 
+/* Sometimes use when allocating miscellaneous strings */
+#define STR_MAXLEN 1024
 
 /**********************************************************************/
 /* You shouldn't need to change any of these, since you may           */

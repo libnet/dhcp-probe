@@ -1,5 +1,8 @@
 TODO for dhcp_probe
 
+If the legal_server_ethersrc feature passes additional testing,
+update the documentation to stop referring to it as "experimental."
+
 Fix whatever bug is causing the capture file to be unparseable after the
 first packet.  (After one packet, tcpdump reports: 
 "tcpdump: pcap_loop: truncated dump file".
@@ -19,6 +22,14 @@ Allow specification of the syslog facility name on the commandline?
 
 The legal_servers array initialized by read_configfile() should 
 be created dynamically, rather than sized via compile-time definitions.
+
+The legal_servers_ethersrc array initialized by read_configfile() should 
+be created dynamically, rather than sized via compile-time definitions.
+
+The lease_networks_of_concern_addr, lease_networks_of_concern_netmask,
+and lease_networks_of_concern_addr_and_netmask arrays initialized by 
+read_configfile() should be created dynamically, rather than sized 
+via compile-time definitions.
 
 Figure out how to eliminate the compiler warning in bootp.c
 

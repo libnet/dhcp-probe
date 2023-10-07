@@ -4,7 +4,7 @@ AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_MACRO_DIR(m4)
 
-AM_INIT_AUTOMAKE(dhcp_probe, 1.2.2)
+AM_INIT_AUTOMAKE(dhcp_probe, 1.3.0)
 
 dnl Determine hosttype.
 AC_CANONICAL_HOST
@@ -109,6 +109,14 @@ IST_REQUIRE_PCAP
 
 dnl We require the libnet header and library.
 IST_REQUIRE_LIBNET
+
+dnl We require a declaration for the libnet_cq_end_loop() function.
+dnl It should be declared as a result of including libnet.h if the user has added it as per INSTALL.dhcp_probe.
+AC_CHECK_DECL(libnet_cq_end_loop, [], AC_MSG_ERROR([Didn't find a declaration for the libnet_cq_end_loop() function.  See INSTALL.dhcp_probe.]), [[#include <libnet.h>]])
+
+dnl We require a definition for the libnet_cq_end_loop() function.
+dnl It should be defined in the libnet library if the user has added it as per INSTALL.dhcp_probe.
+AC_CHECK_FUNC(libnet_cq_end_loop, [], AC_MSG_ERROR([Didn't find the libnet_cq_end_loop() function. See INSTALL.dhcp_probe.]))
 
 dnl ##########################################################################
 

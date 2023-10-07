@@ -1,5 +1,13 @@
 Platform-Specific Notes for dhcp_probe
 
+The author develops this program on Solaris 9 on SPARC, so that's the platform
+you can expect to work.    The author has not ported the program to other platforms,
+and in fact, it currently ignores much of what 'configure' discovers.
+
+Others have contributed patches to make this program run on several other platforms.
+The author is usually unable to test whether these patches work on those platforms.
+
+
 
 FREEBSD
 
@@ -11,4 +19,49 @@ you will probably need to specify --with-libnet-lib=/usr/local/lib/libnet11/
 
 You may need to specify --mandir=/usr/local/man at configure-time.
 
+
+
+SOLARIS
+
+The current version of the program has been successfully built and used on the
+following versions of Solaris:
+
+        Solaris 9 on SPARC
+        gcc 3.3.6
+        libpcap 0.9.8
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
+
+Earlier versions of the program has been successfully built and used on on the
+following versions of Solaris; it is possible that the current version may still 
+build and run on them, but this has not been verified by the author:
+
+        Solaris 9 on SPARC
+        gcc 3.0.4
+        libpcap 0.8.3
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
+
+        Solaris 9 on SPARC
+        gcc 3.3.3
+        libpcap 0.8.3
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
+
+        Solaris 9 on SPARC
+        gcc 3.3.3
+        libpcap 0.9.3
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
+
+        Solaris 9 on SPARC
+        gcc 3.3.3
+        libpcap 0.9.4
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
+
+        Solaris 9 on SPARC
+        gcc 3.3.6
+        libpcap 0.9.5
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
+
+        Solaris 9 on SPARC
+        gcc 3.3.6
+        libpcap 0.9.7
+        libnet 1.1.2.1 (with the libnet_cq_end_loop() change described above)
 

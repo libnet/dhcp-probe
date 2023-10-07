@@ -13,7 +13,11 @@ struct in_addr * GetServer_id(void);
 unsigned GetCycle_time(void);
 int GetResponse_wait_time(void);
 int isLegalServersMember(struct in_addr *ipaddr);
+int isLegalServerEthersrcsMember(struct ether_addr *eaddr);
+int isInLeaseNetworksOfConcern(struct in_addr *ipaddr);
+
 char * GetAlert_program_name(void);
+char * GetAlert_program_name2(void);
 
 
 

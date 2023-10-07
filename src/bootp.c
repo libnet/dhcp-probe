@@ -101,11 +101,11 @@ build_dhcp_packet(enum dhcp_flavor_t flavor)
 	struct bootp *packet;
 	unsigned char *next_vendor_option; /* place to write next vendor option */
 
-	/* XXX I cannot determine of the contents of the optional payload passed to libnet_build_udp() is COPIED by libnet,
+	/* XXX I cannot determine whether the contents of the optional payload passed to libnet_build_udp() is COPIED by libnet,
 	   or if libnet just keeps a copy of the pointer.  If the former, I should create the buffer using an auto var;
 	   if the latter I should malloc the buffer.
 	   To be safe, I malloc the buffer.
-	   However, note that if libnet actually COPYIES the contents of my buffer into its own private buffer,
+	   However, note that if libnet actually COPIES the contents of my buffer into its own private buffer,
 	   then presumably libnet_destroy() will not free the buffer I malloc'd, so each time we re-read the configuration file,
 	   we will leak the buffer I malloc'd.
 	*/
@@ -132,9 +132,11 @@ build_dhcp_packet(enum dhcp_flavor_t flavor)
 	if (flavor != BOOTP) {
 		struct in_addr * ciaddr; /* temp value of Client IP Address, if needed */
 
-		/* add DHCP client id to options field */
-		init_option_clientid();
-		insert_option(&next_vendor_option, vendor_option_clientid, sizeof(vendor_option_clientid));
+
+		/* We prefer to make the 'DHCP Message Type' the first option (after RFC1048 cookie) if possible,
+		   because we have seen one (broken) DHCP server that only answered DHCP clients if they specifed this
+		   option right after the RFC1048 cookie.
+		*/
 
 		switch (flavor) {
 
@@ -190,6 +192,11 @@ build_dhcp_packet(enum dhcp_flavor_t flavor)
 				break;
 
 		} /* switch */
+
+		/* add DHCP client id to options field */
+		init_option_clientid();
+		insert_option(&next_vendor_option, vendor_option_clientid, sizeof(vendor_option_clientid));
+
 
 	} /* flavor != BOOTP */
 

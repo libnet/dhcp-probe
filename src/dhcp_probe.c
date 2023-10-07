@@ -362,7 +362,7 @@ main(int argc, char **argv)
 		my_exit(1, 1, 1);
 	}
 
-	/* install SIGCHLD handler to reap children (e.g. when alert_program_name is specified */
+	/* install SIGCHLD handler to reap children (e.g. when alert_program_name or alert_program_name2 is specified */
 	sigemptyset(&sa.sa_mask);
 	sa.sa_handler = catcher;
 	sa.sa_flags = 0;
@@ -571,7 +571,7 @@ main(int argc, char **argv)
 
 			/* XXX I often find that pcap_dispatch() returns well before the timeout specified earlier.
 			   I ensure that there's no alarm() still left over before we start, and also ensure we don't
-			   get interrupted by SIGCHLD (possible since process_response() could fork an alert_program child).
+			   get interrupted by SIGCHLD (possible since process_response() could fork an alert_program or alert_program2 child).
 			   But we STILL often return from pcap_dispatch() too soon!
 			   April 2001: An update to the pcap(3) man page around version 0.6 (?), along with postings 
 			   on the tcpdump workers mailing list explains what's going on.  The timeout specified in 
@@ -661,7 +661,7 @@ main(int argc, char **argv)
 
 		/* We allow must signals that come in during our sleep() to interrupt us.  E.g. we want to cut short
 		   our sleep when we're signalled to exit.  But we must block SIGCHLD during our sleep.  That's because
-		   if we forked an alert_program child above, its termination will likely happen while we're sleeping;
+		   if we forked an alert_program or alert_program2 child above, its termination will likely happen while we're sleeping;
 		   we'll end up being interrupted by the SIGCHLD almost immediately, cutting short our sleep and forcing
 		   us to proceed to the next probe cycle far too soon.
 		*/
@@ -705,18 +705,21 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 	struct udphdr *udp_header; /* access UDP header */
 	struct bootp *bootp_pkt; /* access bootp/dhcp packet */
 	int bootp_min_len; 
+	int isYiaddrInLeaseNetworksOfConcern = 0; /* boolean */
+	char yiaddr_network_of_concern_addenda[STR_MAXLEN];
+	int isLegalServer;			/* boolean */
 
 	/* fields parsed out from packet*/
 	struct ether_addr ether_dhost, ether_shost;
-	struct in_addr ip_src, ip_dst;
+	struct in_addr ip_src, ip_dst, yiaddr;
 	/* string versions of same */
 	char ether_dhost_str[MAX_ETHER_ADDR_STR], ether_shost_str[MAX_ETHER_ADDR_STR];
-	char ip_src_str[MAX_IP_ADDR_STR], ip_dst_str[MAX_IP_ADDR_STR];
+	char ip_src_str[MAX_IP_ADDR_STR], ip_dst_str[MAX_IP_ADDR_STR], yiaddr_str[MAX_IP_ADDR_STR];
 	int ip_header_len_bytes;
 	int udp_len; /* XXX why does udp.h declare this as signed? */
 	int udp_payload_len;
 
-	char *alert_program_name;
+	char *alert_program_name, *alert_program_name2;
 
 	if (debug > 10)
 		report(LOG_DEBUG, "   captured a packet");
@@ -831,8 +834,22 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 
 	/* at this point we know the packet is a response to my probe */
 
-	/* ignore answers coming from legal IPsrc */
-	if (isLegalServersMember(&ip_src)) {
+	/* Determine if the response is from an expected server. */
+	isLegalServer = 1; /* start by assuming it is expected. */
+
+	if (!isLegalServersMember(&ip_src)) {
+		if (debug > 10)
+			report(LOG_DEBUG, "     ip_src %s is not a legal server", ip_src_str);
+		isLegalServer = 0;
+	}
+
+	if (!isLegalServerEthersrcsMember(&ether_shost)) {
+		if (debug > 10)
+			report(LOG_DEBUG, "     ether_shost %s is not a legal server", ether_shost_str);
+		isLegalServer = 0;
+	}
+
+	if (isLegalServer) {
 		if (debug > 10)
 			report(LOG_DEBUG, "     this is a legal server, ignoring");
 		return;
@@ -840,16 +857,41 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 
 	/* at this point we know the responder is unexpected */
 
+	/* parse yiaddr out of bootp packet easier access */
+	bcopy(&(bootp_pkt->bootp_yiaddr), &yiaddr, sizeof(bootp_pkt->bootp_yiaddr));
+	/* create printable version of the field we parsed above */
+	bcopy(inet_ntoa(yiaddr), &yiaddr_str, sizeof(yiaddr_str));
+
+	if (yiaddr.s_addr != INADDR_ANY) {
+		if (isInLeaseNetworksOfConcern(&yiaddr)) {
+			isYiaddrInLeaseNetworksOfConcern = 1;
+			if (debug > 10)
+				report(LOG_DEBUG, "     yiaddr %s is in inside a lease_network_of_concern", yiaddr_str);
+		}
+	}
+
+
 	/* report unexpected server */
 	/* Producing this log message is our entire reason for existance. */
-	report(LOG_WARNING, "received unexpected response on interface %s from BootP/DHCP server with IP source %s (ether src %s)", ifname, ip_src_str, ether_shost_str);
+
+	/* The log message may end with an addenda to further alert you that the yiaddr was inside a network of concern.
+	   Prepare that possible addenda first.
+	*/
+	if (isYiaddrInLeaseNetworksOfConcern) {
+		snprintf(yiaddr_network_of_concern_addenda, sizeof(yiaddr_network_of_concern_addenda), "  Response also contains yiaddr %s inside a network of concern.", yiaddr_str);
+	} else {
+		yiaddr_network_of_concern_addenda[0] = '\0';
+	}
+
+	report(LOG_WARNING, "received unexpected response on interface %s from BootP/DHCP server with IP source %s (ether src %s).%s", ifname, ip_src_str, ether_shost_str, yiaddr_network_of_concern_addenda);
+
 
 	/* also save the response packet if we are writing to capture file */
 	if (pcap_dump_d) {
 		pcap_dump((u_char *) pcap_dump_d, pkthdr, packet);
 	}
 
-	/* Also call the alert_program_name if the user has specified one */
+	/* Also call the alert_program_name if the user has specified one. */
 	/* We must fetch it anew as it may have changed due to configfile change */
 	alert_program_name = GetAlert_program_name();
 	if (alert_program_name) {
@@ -872,9 +914,42 @@ process_response(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *p
 				exit(0);  /* child exits */
 			}
 		}
+	} /* if (alert_program_name) */
 
-	}
-	
+	/* Also call the alert_program_name2 if the user has specified one. */
+	/* We must fetch it anew as it may have changed due to configfile change */
+	alert_program_name2 = GetAlert_program_name2();
+	if (alert_program_name2) {
+		/* We run it in a child, so we don't block waiting for it to return. */
+		pid_t pid;
+		if ((pid = fork()) < 0) {
+			report(LOG_ERR, "can't fork to run %s: %s", alert_program_name2, get_errmsg());
+			/* just skip running alert_program_name2, but keep running since we're still fine */
+		} else if (pid == 0) { /* child */
+			int execl_rc;
+			/* We do allow child to inherit fd 0,1,2.  If we're logging to stderr, we want child to have it too. */
+			if (sockfd) /* We don't want child to inherit the general purpose dgram socket */
+				close(sockfd);
+			libnet_cq_destroy(); /* We don't want child to inherit to inherit libnet context queue */
+			if (pd) /* We don't want child to inherit packet capture descriptor, nor packet dumpfile descriptor. */
+				pcap_close(pd);
+			if (pcap_dump_d)
+				pcap_dump_close(pcap_dump_d);
+			if (isYiaddrInLeaseNetworksOfConcern) {
+				/* include "-y yiaddr' option */
+				execl_rc = execl(alert_program_name2, alert_program_name2, "-p", prog, "-I", ifname, "-i", ip_src_str, "-m", ether_shost_str, "-y", yiaddr_str, (char *) 0 );
+			} else {
+				/* do not include "-y yiaddr' option */
+				execl_rc = execl(alert_program_name2, alert_program_name2, "-p", prog, "-I", ifname, "-i", ip_src_str, "-m", ether_shost_str, (char *) 0 );
+			}
+			if (execl_rc < 0) {
+				report(LOG_ERR, "can't execute alert_program_name2 '%s': %s", alert_program_name2, get_errmsg());
+				exit(0);  /* child exits */
+			}
+		}
+	} /* if (alert_program_name2) */
+
+
 	return;
 }
 

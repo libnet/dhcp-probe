@@ -4,7 +4,7 @@
 	Do not call any accessor function before read_configfile().
 */
 
-/* Copyright (c) 2000-2004, The Trustees of Princeton University, All Rights Reserved. */
+/* Copyright (c) 2000-2008, The Trustees of Princeton University, All Rights Reserved. */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -49,8 +49,23 @@ unsigned cycle_time;
 struct in_addr legal_servers[MAX_LEGAL_SERVERS];
 int num_legal_servers;
 
+/* array of legal DHCP servers' ethersrc addresses, and number elems in array */
+struct ether_addr legal_server_ethersrcs[MAX_LEGAL_SERVER_ETHERSRCS];
+int num_legal_server_ethersrcs;
+
+/* parallel arrays of "lease networks of concern" (address & mask), and number of elems in arrays.
+   We also precompute a parallel array of 'addr & mask' to save computing these repeatedly later.
+/* If a response already identified as being from a rogue DHCP server contains a yiaddr field field
+   that falls into one of these networks, it is reported as a matter of special concern.
+*/
+struct in_addr lease_networks_of_concern_addr[MAX_LEASE_NETWORKS_OF_CONCERN];
+struct in_addr lease_networks_of_concern_netmask[MAX_LEASE_NETWORKS_OF_CONCERN];
+struct in_addr lease_networks_of_concern_addr_and_netmask[MAX_LEASE_NETWORKS_OF_CONCERN];
+int num_lease_networks_of_concern;
+
 /* optional name of external alert program to call */
-char *alert_program_name = NULL;
+char *alert_program_name = NULL; /* old style alert program */
+char *alert_program_name2 = NULL; /* newer style alert program */
 
 
 int
@@ -71,7 +86,7 @@ read_configfile(const char *fname)
 	int tmpint;
 	unsigned int tmpuint;
 	struct ether_addr *enet;
-	struct in_addr inaddr;
+	struct in_addr inaddr, inaddr2;
 	
 	/* init all values to defaults */
 	is_chaddr_specified = 0;
@@ -83,9 +98,15 @@ read_configfile(const char *fname)
 	cycle_time = CYCLE_TIME;
 	response_wait_time = RESPONSE_WAIT_TIME;
 	num_legal_servers = 0;
+	num_legal_server_ethersrcs = 0;
+	num_lease_networks_of_concern = 0;
 	if (alert_program_name) { /* we must have malloc'd it last time we read the config file */
 		free(alert_program_name);
 		alert_program_name = NULL;
+	}
+	if (alert_program_name2) { /* we must have malloc'd it last time we read the config file */
+		free(alert_program_name2);
+		alert_program_name2 = NULL;
 	}
 
 	if (debug > 1)
@@ -248,10 +269,85 @@ read_configfile(const char *fname)
 
 			num_legal_servers++;
 
+		} else if (! strcasecmp(str1, "legal_server_ethersrc")) {
+
+			if (num_legal_server_ethersrcs == MAX_LEGAL_SERVER_ETHERSRCS) {
+				report(LOG_ERR, "read_configfile: line %d, number of legal_server_ethersrc statements exceeds maximum (%d), ignoring", line, MAX_LEGAL_SERVER_ETHERSRCS);
+				report(LOG_ERR, "You may increase the maximum by adjusting MAX_LEGAL_SERVER_ETHERSRCS and recompiling.");
+				continue;
+			}
+
+			/* token2: required Ethernet address */
+			if (tokens < 2) {
+				report(LOG_ERR, "read_configfile: line %d, not enough values: %s", line, buf);
+				continue;
+			}
+
+			if ((enet = ether_aton(str2)) == NULL) {
+				report(LOG_ERR, "read_configfile: line %d, skipping invalid ethernet address: %s", line, str2);
+				continue;
+			}
+
+			bcopy(enet, &legal_server_ethersrcs[num_legal_server_ethersrcs], sizeof(legal_server_ethersrcs[num_legal_server_ethersrcs]));
+			if (debug > 2)
+				report(LOG_DEBUG, "read_configfile: legal_server_ethersrc %s", ether_ntoa(&legal_server_ethersrcs[num_legal_server_ethersrcs]));
+
+			num_legal_server_ethersrcs++;
+
+
+		} else if (! strcasecmp(str1, "lease_network_of_concern")) {
+
+			if (num_lease_networks_of_concern == MAX_LEASE_NETWORKS_OF_CONCERN) {
+				report(LOG_ERR, "read_configfile: line %d, number of lease_network_of_concern statements exceeds maximum (%d), ignoring", line, MAX_LEASE_NETWORKS_OF_CONCERN);
+				report(LOG_ERR, "You may increase the maximum by adjusting MAX_LEASE_NETWORKS_OF_CONCERN and recompiling.");
+				continue;
+			}
+
+			/* token 2: required network IP address.  token 3: required network mask */
+			if (tokens < 3) {
+				report(LOG_ERR, "read_configfile: line %d, not enough values: %s", line, buf);
+				continue;
+			}
+
+			/* convert network address */
+			if (inet_aton(str2, &inaddr) == 0) {
+				report(LOG_ERR, "read_configfile: line %d, invalid IP network address: %s", line, str2);
+				continue;
+			}
+
+			/* convert network mask */
+			if (inet_aton(str3, &inaddr2) == 0) {
+				report(LOG_ERR, "read_configfile: line %d, invalid IP network mask: %s", line, str3);
+				continue;
+			}
+
+			/* address and mask converted ok, save them */
+			lease_networks_of_concern_addr[num_lease_networks_of_concern].s_addr = inaddr.s_addr;
+			lease_networks_of_concern_netmask[num_lease_networks_of_concern].s_addr = inaddr2.s_addr;
+
+			/* precompute 'addr & mask' to save us the effort of repeatedly computing it later. */
+			lease_networks_of_concern_addr_and_netmask[num_lease_networks_of_concern].s_addr =  inaddr.s_addr & inaddr2.s_addr;
+
+			if (debug > 2) {
+				/* Calling inet_ntoa() twice in the same statement isn't safe.
+				   Avoid the need to do so by computing one of the results first and temporarily copying it.
+				*/
+				char addr_str_tmp[MAX_IP_ADDR_STR];
+				bcopy(inet_ntoa(lease_networks_of_concern_addr[num_lease_networks_of_concern]), &addr_str_tmp, sizeof(addr_str_tmp));
+				report(LOG_DEBUG, "read_configfile: lease_network_of_concern %s %s", addr_str_tmp, inet_ntoa(lease_networks_of_concern_netmask[num_lease_networks_of_concern]));
+			}
+
+			num_lease_networks_of_concern++;
+
 		} else if (! strcasecmp(str1, "alert_program_name")) {
 
 			if (alert_program_name) {
 				report(LOG_ERR, "read_configfile: line %d, alert_program_name may be specified only once, ignoring", line);
+				continue;
+			}
+
+			if (alert_program_name2) {
+				report(LOG_ERR, "read_configfile: line %d, alert_program_name may not be specified when alert_program_name2 was already specified, as only one may be used, ignoring", line);
 				continue;
 			}
 
@@ -274,6 +370,39 @@ read_configfile(const char *fname)
 
 			if (debug > 2)
 				report(LOG_DEBUG, "read_configfile: alert_program_name %s", alert_program_name);
+
+		} else if (! strcasecmp(str1, "alert_program_name2")) {
+
+			if (alert_program_name2) {
+				report(LOG_ERR, "read_configfile: line %d, alert_program_name2 may be specified only once, ignoring", line);
+				continue;
+			}
+
+			if (alert_program_name) {
+				report(LOG_ERR, "read_configfile: line %d, alert_program_name2 may not be specified when alert_program_name was already specified, as only one may be used, ignoring", line);
+				continue;
+			}
+
+			/* token2: required program name */
+			if (tokens < 2) {
+				report(LOG_ERR, "read_configfile: line %d, not enough values: %s", line, buf);
+				continue;
+			}
+
+			if (str2[0] != '/') {
+				report(LOG_ERR, "read_configfile: line %d, invalid alert_program_name2 '%s', must be an absolute pathname, ignoring", line, str2);
+				continue;
+			}
+
+			alert_program_name2 = strdup(str2);
+			if (! alert_program_name2) {
+				report(LOG_ERR, "read_configfile: line %d, can't save alert_program_name2 because strdup() could not malloc() space, ignoring", line);
+				continue;
+			}
+
+			if (debug > 2)
+				report(LOG_DEBUG, "read_configfile: alert_program_name2 %s", alert_program_name2);
+
 
 		} else {
 			report(LOG_ERR, "read_configfile: line %d, unrecognized token: %s", line, str1);
@@ -405,6 +534,54 @@ isLegalServersMember(struct in_addr *ipaddr)
 	return 0; /* not found */
 }
 
+int
+isInLeaseNetworksOfConcern(struct in_addr *ipaddr)
+{
+/* If ipaddr is within any of the lease_networks_of_concern, return true.
+   Else return false.
+*/
+
+	int i;
+
+	if (!num_lease_networks_of_concern)
+		/* No lease_networks_of_concern have been specified. */
+		return 0; /* not found */
+
+	for (i = 0; i < num_lease_networks_of_concern; i++) {
+		if ((ipaddr->s_addr & lease_networks_of_concern_netmask[i].s_addr) == lease_networks_of_concern_addr_and_netmask[i].s_addr)
+			return 1; /* found */
+	}
+	return 0; /* not found */
+}
+
+int
+isLegalServerEthersrcsMember(struct ether_addr *eaddr)
+{
+/* If eaddr is a member of legal_server_ethersrcs[], return true.
+   If legal_server_ethersrcs[] is empty, also return true.
+   Else return false.
+*/
+
+	int i;
+
+	if (!eaddr) {
+		report(LOG_ERR, "isLegalServerEthersrcsMember: internal error, called with *eaddr==NULL");
+		return 0; /* not found */
+	}
+
+	/* If no legal_server_ethersrc values have been specified, then the user doesn't want us
+	   to check the response's ethersrc in the first place.  So treat eaddr as "legal"; return true.
+	*/
+	if (!num_legal_server_ethersrcs)
+		return 1;
+
+	for (i = 0; i < num_legal_server_ethersrcs; i++) {
+		if (!bcmp(eaddr, &legal_server_ethersrcs[i], sizeof(struct ether_addr))) 
+			return 1; /* found */
+	}
+	return 0; /* not found */
+}
+
 
 /* Return copy of alert_program_name string.
    Not re-entrant; we use static storage to hold the ptr to the string we return.
@@ -437,5 +614,38 @@ GetAlert_program_name(void)
 	}
 
     return alert_program_name_copy;
+}
+
+/* Return copy of alert_program_name2 string.
+   Not re-entrant; we use static storage to hold the ptr to the string we return.
+*/
+char *
+GetAlert_program_name2(void)
+{
+    static char *alert_program_name2_copy = NULL;
+
+	if (alert_program_name2_copy) {
+		/* Space was allocated from a previous call.
+		   We must not re-use that space, since it's possible that the alert_program_name2 has
+		   gotten longer due to a re-read of the configfile.
+		*/
+		free(alert_program_name2_copy);
+		alert_program_name2_copy = NULL;
+	}
+
+	if (!alert_program_name2) {
+		return (char *) NULL;
+	}
+
+	/* we re-init the static copy on each call, since we don't know if the caller has
+	   written into it. */
+	alert_program_name2_copy = strdup(alert_program_name2);
+
+	if (!alert_program_name2_copy) {
+		report(LOG_ERR, "GetAlert_program_name2: strdup() failed (presumably a malloc error)");
+		my_exit(1, 1, 1);
+	}
+
+    return alert_program_name2_copy;
 }
 
