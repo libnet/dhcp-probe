@@ -19,6 +19,9 @@ Allow specification of the syslog facility name on the commandline?
 The legal_servers array initialized by read_configfile() should 
 be created dynamically, rather than sized via compile-time definitions.
 
-Add support for FDDI interfaces
+Add support for non-Ethernet interfaces
 
 Figure out how to eliminate the compiler warning in bootp.c
+
+Check each received packet to determine if it is in fact a response
+to our probe.

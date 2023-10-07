@@ -7,7 +7,7 @@
 	only answer a selected set of clients will not be discovered.
 */
 
-/* Copyright (c) 2000-2002, The Trustees of Princeton University, All Rights Reserved. */
+/* Copyright (c) 2000-2004, The Trustees of Princeton University, All Rights Reserved. */
 
 
 #ifdef HAVE_CONFIG_H
@@ -28,8 +28,8 @@
 
 #ifndef lint
 static const char rcsid[] = "dhcp_probe version " VERSION;
-static const char copyright[] = "Copyright 2000-2002, The Trustees of Princeton University.  All rights reserved.";
-static const char contact[] = "networking@princeton.edu";
+static const char copyright[] = "Copyright 2000-2004, The Trustees of Princeton University.  All rights reserved.";
+static const char contact[] = "networking at princeton dot edu";
 #endif
 
 /* initialize options to defaults */
@@ -287,7 +287,7 @@ main(int argc, char **argv)
 
 	/* lookup ethernet address for specified IP address */
 	/* note that my_eaddr must be init'd before calling GetChaddr() */
-	if (get_myeaddr(sockfd, &my_ipaddr, &my_eaddr) < 0) {
+	if (get_myeaddr(sockfd, &my_ipaddr, &my_eaddr, ifname) < 0) {
 		report(LOG_ERR, "couldn't determine my ethernet addr for my IP address %s", inet_ntoa(my_ipaddr));
 		cleanup();
 		exit(1);

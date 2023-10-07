@@ -99,11 +99,19 @@ extern int inet_aton(const char *, struct in_addr *);
 
 #define PASTE(a,b) a ## b
 
-/* The declarations for these libsocket routines are missing from Solaris 2.6 and Solaris 7 headers */
-char *ether_ntoa (struct ether_addr *);
-struct ether_addr *ether_aton(char *);
+/* Prototypes for these routines are missing from some systems. */
+#ifndef HAVE_ETHER_NTOA_PROTO
+char *ether_ntoa (struct ether_addr *e);
+#endif
+#ifndef HAVE_ETHER_ATON_PROTO
+struct ether_addr *ether_aton(char *hostname);
+#endif
+#ifndef HAVE_ETHER_NTOHOST_PROTO
 int ether_ntohost (char *hostname, struct ether_addr *e);
+#endif
+#ifndef HAVE_ETHER_HOSTTON_PROTO
 int ether_hostton (char *hostname, struct ether_addr *e);
+#endif
 
 
 #endif /* not DEFS_H */

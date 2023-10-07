@@ -35,10 +35,11 @@
 
 
 int
-get_myeaddr(int sockfd, struct in_addr *my_ipaddr, struct ether_addr *my_eaddr)
+get_myeaddr(int sockfd, struct in_addr *my_ipaddr, struct ether_addr *my_eaddr, const char *ifname)
 {
 /* Given my IP address 'my_ipaddr', determine the corresponding Ethernet addr, store it in 'my_eaddr'.
    Needs a dgram sockfd for temp use.
+   May optionally be passed the interface name, which is needed on some platforms, else NULL.
    Return 0 on success, <0 on failure.
 */
 
@@ -54,13 +55,23 @@ get_myeaddr(int sockfd, struct in_addr *my_ipaddr, struct ether_addr *my_eaddr)
 #endif
 
 
+	bzero(&arpreq, sizeof(arpreq));
+
 	/* get access to the protocol address member of arpreq, treated as a sockaddr_in */
 	sin = (struct sockaddr_in *) &arpreq.arp_pa;
 
 	/* fill in sin with the IP address we are searching for */
-	bzero(sin, sizeof(struct sockaddr_in));
 	sin->sin_family = AF_INET;
 	bcopy(my_ipaddr, &sin->sin_addr, sizeof(struct in_addr));
+
+#ifdef STRUCT_ARPREQ_HAS_ARP_DEV
+	/* Some systems have an arpreq.arp_dev member, which must be set to
+	   the interface name.
+	*/
+	if (ifname) {
+		strcpy(arpreq.arp_dev, ifname);
+	}
+#endif
 
 	/* retrieve arp cache entry */
 #ifdef SYS_SOCKET_IOCTLS_USE_STREAMS

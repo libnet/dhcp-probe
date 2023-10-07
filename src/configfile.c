@@ -4,7 +4,7 @@
 	Do not call any accessor function before read_configfile().
 */
 
-/* Copyright (c) 2000-2002, The Trustees of Princeton University, All Rights Reserved. */
+/* Copyright (c) 2000-2004, The Trustees of Princeton University, All Rights Reserved. */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"

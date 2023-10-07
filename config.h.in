@@ -21,8 +21,14 @@
 /* Define the following if ether_aton() is declared */
 #undef HAVE_ETHER_ATON_PROTO
 
+/* Define the following if ether_hostton() is declared */
+#undef HAVE_ETHER_HOSTTON_PROTO
+
 /* Define the following if ether_ntoa() is declared */
 #undef HAVE_ETHER_NTOA_PROTO
+
+/* Define the following if ether_ntohost() is declared */
+#undef HAVE_ETHER_NTOHOST_PROTO
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
@@ -195,6 +201,9 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* Define if struct arpreq{} has an arp_dev member */
+#undef STRUCT_ARPREQ_HAS_ARP_DEV
 
 /* Define if struct sockaddr{} has a sa_len member */
 #undef STRUCT_SOCKADDR_HAS_SA_LEN

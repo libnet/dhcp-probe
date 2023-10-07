@@ -1,3 +1,28 @@
+Tue Nov  2 13:08:27 EST 2004  Irwin Tillman  (irwin at princeton dot edu)
+
+	* src/get_myeaddr.c: clear arpreq before using.
+
+	* Version 1.0.7 released.
+
+Thu Oct 28 13:46:55 EDT 2004  Irwin Tillman  (irwin at princeton dot edu)
+
+	* src/get_myeaddr.c, src/get_myeaddr.h, src/dhcp_probe.c, configure.ac:
+	If struct arpreq has an arp_dev member, fill it in with the interface
+	name before trying to perform a SIOCGARP ioctl.
+
+Wed Oct 27 10:50:57 EDT 2004  Irwin Tillman  (irwin at princeton dot edu)
+
+	* src/defs.h, configure.ac, configure, config.h.in: Only declare ether_ntoa(), 
+	ether_addr(), ether_ntohost(), ether_hostton() if they are missing 
+	from <netinet/ether.h>.
+
+	* src/dhcp_probe.h: remove duplicate decl of ether_ntoa(), ether_addr().
+
+Tue Sep  7 13:33:53 EDT 2004  Irwin Tillman  (irwin at princeton dot edu)
+
+	* INSTALL: add step to verify 'bootpc' and 'bootps' are in /etc/services
+	or NIS services map.
+
 Tue Aug 24 11:17:43 EDT 2004  Irwin Tillman  (irwin at princeton dot edu)
 
 	* Upgraded from autoconf 2.13 to 2.59.  Upgraded from automake 1.4 to 1.8.3.

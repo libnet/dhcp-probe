@@ -85,9 +85,16 @@ using the appropriate command-line option.
 A sample configuration file is supplied in the 'extras' directory; you may wish 
 to use it as a template.
 
+7. Verify that the /etc/services file (or NIS 'services' map, whichever is
+in-use) contains entries for 'bootpc' and 'bootps'.   If they are not
+present, add them:
+
+bootps          67/udp                          # BOOTP/DHCP server
+bootpc          68/udp                          # BOOTP/DHCP client
+
 ---
 
-7. To get started, try running it in the foreground and seeing if the debug messages 
+8. To get started, try running it in the foreground and seeing if the debug messages 
 seem reasonable to you.  E.g. as root:
 
    /usr/local/sbin/dhcp_probe -f -d 11 hme0
@@ -98,7 +105,7 @@ debugging.  Specify the name of the interface on which to run, e.g. 'hme0'.
 
 ---
 
-8. Arrange to have the program started automatically by root when your host starts.  
+9. Arrange to have the program started automatically by root when your host starts.  
 
 Remove the -f option; this flag should never be specified except for debugging
 purposes.    
@@ -114,7 +121,7 @@ this prevents syslog from being used.
 
 ---
 
-9. If you want to capture packets received from unknown servers, add the -o
+10. If you want to capture packets received from unknown servers, add the -o
 option when starting up, to specify a capture file.  Be sure to specify 
 a directory for the capture file that no one may write to except root;
 see the dhcp_probe(8) man page for details.
@@ -125,7 +132,7 @@ this file before starting the program.
 
 ---
 
-10. Any additional tools you may find useful can be found in the 'extras' directory.
+11. Any additional tools you may find useful can be found in the 'extras' directory.
 
 ---
 
@@ -186,9 +193,19 @@ The program has been successfully built and used on the following platforms:
         libpcap 0.8.2
         libnet 1.0.2a
 
+        Solaris 8 on SPARC
+        gcc 3.0.4
+        libpcap 0.8.3
+        libnet 1.0.2a
+
         Solaris 9 on SPARC
         gcc 3.3.3
         libpcap 0.8.2
+        libnet 1.0.2a
+
+        Solaris 9 on SPARC
+        gcc 3.3.3
+        libpcap 0.8.3
         libnet 1.0.2a
 
 * libnet library

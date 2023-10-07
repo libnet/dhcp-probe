@@ -55,16 +55,4 @@ enum { MAX_ETHER_ADDR_STR = 18 };
 enum { MAX_IP_ADDR_STR = 18 };
 
 
-/* If we are positive the prototypes are missing, we declare them.
-   We don't really need to declare them (and in fact doing so is bad style),
-   but as it's SO easy to mistakenly call these with the wrong type args, I want the extra
-   measure of compiler checking provided by declaring these.
-*/
-#ifndef HAVE_ETHER_NTOA_PROTO
-char *ether_ntoa(struct ether_addr *);
-#endif
-#ifndef HAVE_ETHER_ATON_PROTO
-struct ether_addr *ether_aton(char *);
-#endif
-
 #endif /* not DCHPPROBE_H */

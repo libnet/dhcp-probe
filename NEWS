@@ -2,6 +2,11 @@ dhcp_probe NEWS - history of user-visible changes.
 
 See the file ChangeLog for the details of all changes.
 
+Version 1.0.7 - November 2 2004, by Irwin Tillman
+
+* No user-visible changes.
+
+
 Version 1.0.6 - August 24 2004, by Irwin Tillman
 
 * Upgraded autoconf and automake, may build on newer systems.

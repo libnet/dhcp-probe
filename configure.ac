@@ -4,7 +4,7 @@ AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_MACRO_DIR(m4)
 
-AM_INIT_AUTOMAKE(dhcp_probe, 1.0.6)
+AM_INIT_AUTOMAKE(dhcp_probe, 1.0.7)
 
 dnl Determine hosttype.
 AC_CANONICAL_HOST
@@ -105,6 +105,13 @@ AC_CHECK_STRUCT_FOR(
 #include <sys/socket.h>],
 sockaddr,sa_len,[])
 
+dnl We use the AC_CHECK_STRUCT_FOR macro here, to determine if
+dnl struct arpreq() has an arp_dev member.
+AH_TEMPLATE([STRUCT_ARPREQ_HAS_ARP_DEV], [Define if struct arpreq{} has an arp_dev member])
+AC_CHECK_STRUCT_FOR(
+[#include <net/if_arp.h>],
+arpreq,arp_dev,[])
+
 dnl We use these macros to determine if sys_nerr exists and is declared, 
 dnl and to determine if sys_errlist exists and is declared.
 AC_SYS_NERR
@@ -126,6 +133,12 @@ AC_CHECK_FUNC_PROTO(ether_aton, netinet/ether.h)
 
 AH_TEMPLATE([HAVE_ETHER_NTOA_PROTO], [Define the following if ether_ntoa() is declared])
 AC_CHECK_FUNC_PROTO(ether_ntoa, netinet/ether.h)
+
+AH_TEMPLATE([HAVE_ETHER_NTOHOST_PROTO], [Define the following if ether_ntohost() is declared])
+AC_CHECK_FUNC_PROTO(ether_ntohost, netinet/ether.h)
+
+AH_TEMPLATE([HAVE_ETHER_HOSTTON_PROTO], [Define the following if ether_hostton() is declared])
+AC_CHECK_FUNC_PROTO(ether_hostton, netinet/ether.h)
 
 dnl ##################################################################
 dnl Checks for library functions.
