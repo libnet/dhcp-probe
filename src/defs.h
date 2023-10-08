@@ -124,10 +124,6 @@
 extern int inet_aton(const char *, struct in_addr *);
 #endif
 
-#ifndef HAVE_STRERROR
-extern char *strerror(int);
-#endif
-
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
 #endif

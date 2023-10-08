@@ -126,7 +126,7 @@ read_configfile(const char *fname)
 		report(LOG_INFO, "read_configfile: starting");
 
 	if ((fp = fopen(fname, "r")) == NULL) {
-		report(LOG_ERR, "read_configfile: fopen(%s): %s", fname, strerror(errno));
+		report(LOG_ERR, "read_configfile: fopen(%s): %s", fname, get_errmsg());
 		return(0); /* fatal error */
 	}
 

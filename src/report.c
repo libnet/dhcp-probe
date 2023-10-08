@@ -248,10 +248,24 @@ report(priority, fmt, va_alist)
 }
 
 
+/* Return pointer to static string which gives full filesystem error message. */
 char *
-get_errmsg()
+get_errmsg(void)
 {
-/*	Return pointer to static string which gives full filesystem error message.
-*/
+#ifdef HAVE_STRERROR
 	return strerror(errno);
+#else
+# if defined(HAVE_DECL_SYS_ERRLIST) && defined(HAVE_DECL_SYS_NERR)
+	if (errno < 0 || errno >= sys_nerr)
+		return "undefined";
+
+	return (char *)sys_errlist[errno];
+# else
+	static char errmsg[80];
+
+	/* SAFE use of sprintf */
+	sprintf(errmsg, "Error %d", errno);
+	return errmsg;
+# endif
+#endif
 }

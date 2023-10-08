@@ -112,7 +112,7 @@ The file also contains several copyright statements, which are reproduced below.
 
 =========================================================================
 
-Parts of src/report.c and lib/strerror.c came from CMU dhcpd version 3.3.7.
+Parts of src/report.c came from CMU dhcpd version 3.3.7.
 The following notice applies to them:
 
         Copyright 1996 by Carnegie Mellon University
@@ -150,23 +150,6 @@ These items are:
 
 The sample code associated with that book is available from:
 ftp://ftp.kohala.com/pub/rstevens/unpv12e.tar.gz
-
-
-=========================================================================
-
-
-A number of items are based on code from LPRng-2.0.8:
-
-  * the macros AC_SYS_NERR, AC_SYS_ERRLIST, AC_DECL_SYS_ERRLIST, AC_DECL_SYS_ERR_DECL.
-    These are in aclocal.m4 and also in m4/sys_errlist.m4.
-    The macros are based very closely on code from LPRng's configure.in file.
-
-  * much of lib/strerror.c
-
-The macros are based very closely on code from LPRng's configure.in file.
-
-LPRng-2.0.8 is distributed under the GNU General Public License (see the
-COPYING.GPL file).
 
 
 =========================================================================

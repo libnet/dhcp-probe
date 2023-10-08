@@ -13,7 +13,6 @@ EXTRA_DIST = COPYING.GPL COPYING.LIB INSTALL.dhcp_probe PLATFORMS \
 	m4/ist_require_libnet.m4 \
 	m4/ist_require_pcap.m4 \
 	m4/ist_sys_socket_ioctls_use_streams.m4 \
-	m4/sys_errlist.m4 \
 	extras/dhcp_probe.cf.sample \
 	extras/dhcp_probe.FreeBSD.sh \
 	extras/dhcp_probe.startup.Solaris9 \

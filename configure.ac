@@ -192,12 +192,14 @@ AC_CHECK_MEMBER([struct ether_addr.octet], [
 ])
 
 
-dnl We use these macros to determine if sys_nerr exists and is declared, 
-dnl and to determine if sys_errlist exists and is declared.
-AC_SYS_NERR
-AC_DECL_SYS_NERR
-AC_SYS_ERRLIST
-AC_DECL_SYS_ERRLIST
+dnl sys_errlist[] and sys_nerr are supposed to be in <errno.h> on SunOS
+dnl according to the man page (but aren't), in glibc they're in stdio.h.
+AC_CHECK_DECLS([sys_errlist, sys_nerr],,, [
+#include <stdio.h>
+#include <errno.h>
+])
+
+
 
 dnl ##################################################################
 dnl Checks for function prototypes.
@@ -244,15 +246,15 @@ AC_CHECK_DECLS([ether_aton, ether_ntoa, ether_ntohost, ether_hostton],,, [
 dnl ##################################################################
 dnl Checks for library functions.
 
-AC_CHECK_FUNCS([bcmp bcopy bzero]) 
-AC_CHECK_FUNCS([vsnprintf]) 
+AC_CHECK_FUNCS([bcmp bcopy bzero])
+AC_CHECK_FUNCS([vsnprintf strerror])
 AC_CHECK_FUNCS([sysconf getrlimit])
 AC_CHECK_FUNCS([getifaddrs])
 
 dnl ##################################################################
 dnl Check for oft-missing library functions for which we provide a fallback implementation.
 
-AC_REPLACE_FUNCS([inet_aton strerror])
+AC_REPLACE_FUNCS([inet_aton])
 AC_CONFIG_LIBOBJ_DIR([lib])
 
 dnl ##################################################################
