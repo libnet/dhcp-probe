@@ -28,10 +28,7 @@ case "$host" in
 esac
 
 dnl ##########################################################################
-
 dnl Checks for header files.
-
-AC_HEADER_STDC
 
 AC_CHECK_HEADERS([ctype.h errno.h fcntl.h netdb.h pthread.h signal.h stdio.h stdlib.h]) 
 AC_CHECK_HEADERS([string.h strings.h stropts.h syslog.h time.h unistd.h])
@@ -128,10 +125,8 @@ dnl It should be defined in the libnet library if the user has added it as per I
 AC_CHECK_FUNC([libnet_cq_end_loop], [], AC_MSG_ERROR([Didn't find the libnet_cq_end_loop() function. See INSTALL.dhcp_probe.]))
 
 dnl ##########################################################################
-
 dnl Checks for typedefs, structures, and compiler characteristics.
 
-AC_HEADER_TIME
 AC_STRUCT_TM
 
 dnl We use the AC_CHECK_STRUCT_FOR macro here, to determine if
