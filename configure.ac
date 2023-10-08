@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([dhcp_probe], [1.3.1])
+AC_INIT([dhcp_probe], [1.4.0-dev])
 AC_CONFIG_SRCDIR([src/dhcp_probe.c])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_HEADERS([config.h])
