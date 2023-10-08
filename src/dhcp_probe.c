@@ -95,7 +95,7 @@ main(int argc, char **argv)
 	/* for libpcap */
 	struct bpf_program bpf_code;
 	int linktype;
-	char pcap_errbuf[PCAP_ERRBUF_SIZE], pcap_errbuf2[PCAP_ERRBUF_SIZE];
+	char pcap_errbuf[PCAP_ERRBUF_SIZE];
 
 	/* get progname = last component of argv[0] */
 	prog = strrchr(argv[0], '/');
@@ -416,7 +416,7 @@ main(int argc, char **argv)
 		*/
 		pcap_errbuf[0] = '\0'; /* so we can tell if a warning was produced on success */
 		if ((pd_template = pcap_open_live(ifname, snaplen, 0, 1, pcap_errbuf)) == NULL) {
-			report(LOG_ERR, "pcap_open_live %s: %s", ifname, pcap_errbuf2);
+			report(LOG_ERR, "pcap_open_live %s: %s", ifname, pcap_errbuf);
 			my_exit(1, 1, 1);
 		}
 		if (pcap_errbuf[0] != '\0')
