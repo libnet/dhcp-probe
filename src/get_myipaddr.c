@@ -1,10 +1,22 @@
 /* 
  * get_myipaddr.c: get my own IP address (for a specified interface)
  *
- * Based on get_ifi_info() beginning on page 429
- * "UNIX Network Programming: Volume 1", Second Edition,
- * by W. Richard Stevens.
- * I've modified it to support platforms needing SYS_SOCKET_IOCTLS_USE_STREAMS.
+ * Based on get_ifi_info(), beginning on page 429 of "UNIX Network
+ * Programming: Volume 1", Second Edition, by W. Richard Stevens.
+ *
+ * Modified to support platforms needing SYS_SOCKET_IOCTLS_USE_STREAMS.
+ *
+ * Corresponding examples for the Third Edition, published at GitHub
+ * <https://github.com/unpbook/unpv13e>, provide the following insight
+ * into the license and rights to distribute of this particular code:
+ *
+ *     The code is available to anyone on the Internet and should
+ *     compile easily on most current Unix systems.  The majority of
+ *     the 10,000 lines of C code are functions that one can use as
+ *     building blocks (a network programming toolchest) inside their
+ *     own network applications.  Many of these functions help hide
+ *     the differences between IPv4 and IPv6, and can aid the reader
+ *     in developing protocol-independent code.
  */
 
 #ifdef HAVE_CONFIG_H

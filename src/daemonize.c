@@ -1,11 +1,20 @@
 /* Daemonize correctly.
-
-   Based closely on daemon_init() from
-   "UNIX Network Programming: Volume 1", Second Edition,
-   by W. Richard Stevens.  That sample code is available via
-   ftp://ftp.kohala.com/pub/rstevens/unpv12e.tar.gz.
+ *
+ * Based on daemon_init() from "UNIX Network Programming: Volume 1",
+ * Second Edition, by W. Richard Stevens.
+ *
+ * Corresponding examples for the Third Edition, published at GitHub
+ * <https://github.com/unpbook/unpv13e>, provide the following insight
+ * into the license and rights to distribute of this particular code:
+ *
+ *     The code is available to anyone on the Internet and should
+ *     compile easily on most current Unix systems.  The majority of
+ *     the 10,000 lines of C code are functions that one can use as
+ *     building blocks (a network programming toolchest) inside their
+ *     own network applications.  Many of these functions help hide
+ *     the differences between IPv4 and IPv6, and can aid the reader
+ *     in developing protocol-independent code.
 */
-
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"

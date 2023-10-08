@@ -1,9 +1,21 @@
 /* 
  * get_myeaddr.c: get my own ethernet address (for a specified IP address)
  *
- * The code for the case where we use ioctl(SIOCGARP) is not defined is based on prmac.c on page 442 of
- * "UNIX Network Programming: Volume 1", Second Edition,
- * by W. Richard Stevens.
+ * The code for the case where we use ioctl(SIOCGARP) is not defined is
+ * based on prmac.c on page 442 of "UNIX Network Programming: Volume 1",
+ * Second Edition, by W. Richard Stevens.
+ *
+ * Corresponding examples for the Third Edition, published at GitHub
+ * <https://github.com/unpbook/unpv13e>, provide the following insight
+ * into the license and rights to distribute of this particular code:
+ *
+ *     The code is available to anyone on the Internet and should
+ *     compile easily on most current Unix systems.  The majority of
+ *     the 10,000 lines of C code are functions that one can use as
+ *     building blocks (a network programming toolchest) inside their
+ *     own network applications.  Many of these functions help hide
+ *     the differences between IPv4 and IPv6, and can aid the reader
+ *     in developing protocol-independent code.
  */
 
 #ifdef HAVE_CONFIG_H
