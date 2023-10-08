@@ -1,5 +1,5 @@
-dnl Process this file with autoconf to produce a configure script.
 AC_INIT([dhcp_probe], [1.4.0-dev])
+AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile])
 AC_CONFIG_SRCDIR([src/dhcp_probe.c])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_HEADERS([config.h])
@@ -11,13 +11,12 @@ dnl Determine hosttype.
 AC_CANONICAL_HOST
 
 dnl ##########################################################################
-
 dnl Checks for programs.
+
 AC_PROG_CC
-AC_PROG_RANLIB
+PKG_PROG_PKG_CONFIG
 
 dnl ##########################################################################
-
 dnl OS-specific libraries.
 
 case "$host" in
@@ -86,7 +85,6 @@ dnl ifaddrs.h is supplied by many *BSDs
 AC_CHECK_HEADERS([ifaddrs.h])
 
 dnl ##########################################################################
-
 dnl Checks for types.
 
 AC_TYPE_INT8_T
@@ -99,30 +97,10 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 
 dnl ##########################################################################
-
 dnl Checks for other required or optional packages.
 
-dnl We require the libpcap header and library.
-IST_REQUIRE_PCAP
-
-dnl We require a declaration for the pcap_breakloop() function; older versions of libpcap lack it.
-dnl It should be declared as a result of including pcap.h.
-AC_CHECK_DECL([pcap_breakloop], [], AC_MSG_ERROR([Didn't find a declaration for the pcap_breakloop() function.  Perhaps libpcap is too old.  See INSTALL.dhcp_probe.]), [[#include <pcap.h>]])
-
-dnl We require a declaration for the pcap_breakloop() function; older versions of libpcap lack it.
-dnl It should be defined in the pcap library.
-AC_CHECK_FUNC([pcap_breakloop], [], AC_MSG_ERROR([Didn't find the pcap_breakloop() function. Perhaps libpcap is too old.  See INSTALL.dhcp_probe.]))
-
-dnl We require the libnet header and library.
-IST_REQUIRE_LIBNET
-
-dnl We require a declaration for the libnet_cq_end_loop() function.
-dnl It should be declared as a result of including libnet.h if the user has added it as per INSTALL.dhcp_probe.
-AC_CHECK_DECL([libnet_cq_end_loop], [], AC_MSG_ERROR([Didn't find a declaration for the libnet_cq_end_loop() function.  See INSTALL.dhcp_probe.]), [[#include <libnet.h>]])
-
-dnl We require a definition for the libnet_cq_end_loop() function.
-dnl It should be defined in the libnet library if the user has added it as per INSTALL.dhcp_probe.
-AC_CHECK_FUNC([libnet_cq_end_loop], [], AC_MSG_ERROR([Didn't find the libnet_cq_end_loop() function. See INSTALL.dhcp_probe.]))
+PKG_CHECK_MODULES([libpcap], [libpcap >= 0.8.1])
+PKG_CHECK_MODULES([libnet],  [libnet  >= 1.2])
 
 dnl ##########################################################################
 dnl Checks for typedefs, structures, and compiler characteristics.
@@ -264,6 +242,4 @@ dnl Check if socket ioctls must use STREAM ioctls instead of SIOCxxx ioctls.
 IST_SYS_SOCKET_IOCTLS_USE_STREAMS
 
 dnl ##################################################################
-
-AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile])
 AC_OUTPUT

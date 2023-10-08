@@ -1,7 +1,4 @@
-## Process this file with automake to produce Makefile.in
-
-SUBDIRS = doc src
-
+SUBDIRS    = doc src
 EXTRA_DIST = ChangeLog.md LICENSE README \
 	m4/ist_require_libnet.m4 \
 	m4/ist_require_pcap.m4 \
