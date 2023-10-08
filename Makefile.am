@@ -2,7 +2,7 @@
 
 SUBDIRS = doc src
 
-EXTRA_DIST = LICENSE README \
+EXTRA_DIST = ChangeLog.md LICENSE README \
 	m4/ist_require_libnet.m4 \
 	m4/ist_require_pcap.m4 \
 	m4/ist_sys_socket_ioctls_use_streams.m4 \
