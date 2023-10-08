@@ -266,5 +266,4 @@ IST_SYS_SOCKET_IOCTLS_USE_STREAMS
 dnl ##################################################################
 
 AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile])
-AC_CONFIG_COMMANDS([stamp-h], [date > stamp-h])
 AC_OUTPUT

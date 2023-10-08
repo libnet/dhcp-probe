@@ -2,14 +2,7 @@
 
 SUBDIRS = doc src
 
-EXTRA_DIST = LICENSE INSTALL.dhcp_probe PLATFORMS \
-	config/compile \
-	config/config.guess \
-	config/config.sub \
-	config/install-sh \
-	config/missing \
-	config/mkinstalldirs \
-	config/depcomp \
+EXTRA_DIST = LICENSE README \
 	m4/ist_require_libnet.m4 \
 	m4/ist_require_pcap.m4 \
 	m4/ist_sys_socket_ioctls_use_streams.m4 \
