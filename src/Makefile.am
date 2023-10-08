@@ -1,4 +1,5 @@
-## Process this file with automake to produce Makefile.in
+# For replacement functions in lib/
+AUTOMAKE_OPTIONS = subdir-objects
 
 sbin_PROGRAMS = dhcp_probe
 
@@ -10,7 +11,4 @@ dhcp_probe_SOURCES = bootp.c configfile.c dhcp_probe.c \
 	get_myeaddr.h get_myipaddr.h \
 	daemonize.h open_max.h report.h utils.h
 
-LDADD = $(top_builddir)/lib/libreplace.a
-
-
-
+dhcp_probe_LDADD = $(LIBS) $(LIBOBJS)

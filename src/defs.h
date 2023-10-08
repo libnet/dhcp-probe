@@ -5,10 +5,13 @@
 # include "config.h"
 #endif
 
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include <errno.h>
 #include <string.h>
 #include <strings.h>
 
@@ -115,11 +118,15 @@
 #include <net/if_arp.h>
 #endif
 
-#ifndef HAVE_INET_ATON_PROTO
+#ifndef HAVE_INET_ATON
 # include   <sys/types.h>
 # include   <netinet/in.h>
 extern int inet_aton(const char *, struct in_addr *);
-#endif /* not HAVE_INET_ATON_PROTO */
+#endif
+
+#ifndef HAVE_STRERROR
+extern char *strerror(int);
+#endif
 
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>

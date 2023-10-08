@@ -253,8 +253,5 @@ get_errmsg()
 {
 /*	Return pointer to static string which gives full filesystem error message.
 */
-	extern int errno;
-	extern char *strerror();
-
 	return strerror(errno);
 }

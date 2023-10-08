@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
-SUBDIRS = lib src doc
+SUBDIRS = doc src
 
 EXTRA_DIST = COPYING.GPL COPYING.LIB INSTALL.dhcp_probe PLATFORMS \
 	config/compile \
@@ -10,9 +10,6 @@ EXTRA_DIST = COPYING.GPL COPYING.LIB INSTALL.dhcp_probe PLATFORMS \
 	config/missing \
 	config/mkinstalldirs \
 	config/depcomp \
-	m4/ac_check_func_proto.m4 \
-	m4/ac_check_struct_for.m4 \
-	m4/ac_unp_check_type.m4 \
 	m4/ist_require_libnet.m4 \
 	m4/ist_require_pcap.m4 \
 	m4/ist_sys_socket_ioctls_use_streams.m4 \
