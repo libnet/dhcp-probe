@@ -2,7 +2,7 @@
 
 SUBDIRS = doc src
 
-EXTRA_DIST = COPYING.GPL COPYING.LIB INSTALL.dhcp_probe PLATFORMS \
+EXTRA_DIST = LICENSE INSTALL.dhcp_probe PLATFORMS \
 	config/compile \
 	config/config.guess \
 	config/config.sub \
